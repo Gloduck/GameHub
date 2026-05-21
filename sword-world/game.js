@@ -60,10 +60,18 @@
     swordLegendary: { path: "assets/sword-legendary.png", scale: 0.08, anchorY: 0.55 },
     tree: { path: "assets/tree.png", scale: 0.175, anchorY: 0.72 },
     sakura: { path: "assets/sakura.png", scale: 0.175, anchorY: 0.72 },
+    bush: { path: "assets/bush.png", scale: 0.13, anchorY: 0.72 },
+    boulder: { path: "assets/boulder.png", scale: 0.135, anchorY: 0.74 },
+    bamboo: { path: "assets/bamboo.png", scale: 0.145, anchorY: 0.76 },
+    shrine: { path: "assets/shrine.png", scale: 0.14, anchorY: 0.76 },
     crystal: { path: "assets/crystal.png", scale: 0.145, anchorY: 0.7 },
     lantern: { path: "assets/lantern.png", scale: 0.118, anchorY: 0.74 },
     stump: { path: "assets/stump.png", scale: 0.118, anchorY: 0.72 },
     ruin: { path: "assets/ruin.png", scale: 0.135, anchorY: 0.74 },
+    enemyVioletSheet: { path: "assets/enemy-violet-sheet.png", scale: 0.195, anchorY: 0.74, frameWidth: 256, frameHeight: 256, frames: 8 },
+    enemyCinderSheet: { path: "assets/enemy-cinder-sheet.png", scale: 0.195, anchorY: 0.74, frameWidth: 256, frameHeight: 256, frames: 8 },
+    enemyJadeSheet: { path: "assets/enemy-jade-sheet.png", scale: 0.195, anchorY: 0.74, frameWidth: 256, frameHeight: 256, frames: 8 },
+    enemyMoonSheet: { path: "assets/enemy-moon-sheet.png", scale: 0.195, anchorY: 0.74, frameWidth: 256, frameHeight: 256, frames: 8 },
     floorGrass: { path: "assets/floor-grass.png", scale: 1, anchorY: 0.5 },
     floorStone: { path: "assets/floor-stone.png", scale: 1, anchorY: 0.5 },
     floorMeadow: { path: "assets/floor-meadow.png", scale: 1, anchorY: 0.5 },
@@ -163,6 +171,10 @@
   const obstacleColliderConfig = {
     tree: { shape: "circle", offsetX: 0, offsetY: 18, radius: 24 },
     sakura: { shape: "circle", offsetX: 0, offsetY: 18, radius: 24 },
+    bush: { shape: "circle", offsetX: 0, offsetY: 12, radius: 18 },
+    boulder: { shape: "circle", offsetX: 0, offsetY: 10, radius: 20 },
+    bamboo: { shape: "rect", offsetX: 0, offsetY: 8, width: 24, height: 34 },
+    shrine: { shape: "rect", offsetX: 0, offsetY: 8, width: 30, height: 28 },
     stump: { shape: "rect", offsetX: 0, offsetY: 2, width: 34, height: 20 },
     crystal: { shape: "rect", offsetX: 0, offsetY: -2, width: 24, height: 46 },
     lantern: { shape: "rect", offsetX: 0, offsetY: 7, width: 20, height: 30 },
@@ -288,7 +300,7 @@
   }
 
   function createEnemy(x, y) {
-    const enemyBases = ["enemyRose", "enemyTeal", "enemyGold", "enemyMint"];
+    const enemyBases = ["enemyRose", "enemyTeal", "enemyGold", "enemyMint", "enemyViolet", "enemyCinder", "enemyJade", "enemyMoon"];
     const assetBase = enemyBases[nextEnemyId % enemyBases.length];
     const enemy = {
       id: nextEnemyId++,
@@ -1011,7 +1023,7 @@
       if (distFromOrigin < 160) {
         continue;
       }
-      const type = pick(["tree", "sakura", "stump", "crystal", "lantern", "ruin"], cx * 17 + i, cy * 13 + i);
+      const type = pick(["tree", "sakura", "bush", "boulder", "bamboo", "shrine", "stump", "crystal", "lantern", "ruin"], cx * 17 + i, cy * 13 + i);
       const collider = obstacleCollider(type);
       chunk.obstacles.push({ x: ox, y: oy, radius: obstacleBroadRadius(collider), type, collider });
     }
@@ -1541,6 +1553,14 @@
       ? "tree"
       : obstacle.type === "sakura"
         ? "sakura"
+        : obstacle.type === "bush"
+          ? "bush"
+          : obstacle.type === "boulder"
+            ? "boulder"
+            : obstacle.type === "bamboo"
+              ? "bamboo"
+              : obstacle.type === "shrine"
+                ? "shrine"
         : obstacle.type === "crystal"
           ? "crystal"
           : obstacle.type === "lantern"
