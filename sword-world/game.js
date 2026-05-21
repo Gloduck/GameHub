@@ -6,6 +6,17 @@
   const surviveTimeEl = document.getElementById("surviveTime");
   const killCountEl = document.getElementById("killCount");
   const bladeCountEl = document.getElementById("bladeCount");
+  const settingsToggle = document.getElementById("settingsToggle");
+  const settingsPanel = document.getElementById("settingsPanel");
+  const helpPanel = document.getElementById("helpPanel");
+  const maxBladesInput = document.getElementById("maxBladesInput");
+  const maxEnemyDropInput = document.getElementById("maxEnemyDropInput");
+  const showHitboxInput = document.getElementById("showHitboxInput");
+  const showHelpInput = document.getElementById("showHelpInput");
+  const dropChanceList = document.getElementById("dropChanceList");
+  const dropChanceSummary = document.getElementById("dropChanceSummary");
+  const settingsCancel = document.getElementById("settingsCancel");
+  const settingsConfirm = document.getElementById("settingsConfirm");
 
   const DPR = Math.min(window.devicePixelRatio || 1, 2);
   const CHUNK_SIZE = 640;
@@ -22,10 +33,6 @@
   const CAMERA_PULLBACK = 0.88;
   const PI2 = Math.PI * 2;
   const WORLD_SEED = 71237;
-  const SHOW_HITBOX = (() => {
-    const value = new URLSearchParams(window.location.search).get("hitbox");
-    return value === "1" || value === "true" || value === "on" || value === "show";
-  })();
 
   const keys = new Set();
   const chunks = new Map();
@@ -69,10 +76,26 @@
 
   const state = {
     running: false,
+    settingsOpen: false,
     player: null,
     enemies: [],
     score: 0,
     kills: 0,
+  };
+  const settings = {
+    maxBlades: 15,
+    maxEnemyDropBlades: 2,
+    enemyDropChances: [0.4, 0.1],
+    showHitbox: false,
+    showHelp: false,
+  };
+  const draftSettings = {
+    maxBlades: settings.maxBlades,
+    maxEnemyDropBlades: settings.maxEnemyDropBlades,
+    enemyDropChances: [...settings.enemyDropChances],
+    enemyDropChanceTexts: settings.enemyDropChances.map((value) => String(value)),
+    showHitbox: settings.showHitbox,
+    showHelp: settings.showHelp,
   };
 
   const obstacleColliderConfig = {
@@ -199,6 +222,7 @@
 
   function restartGame() {
     state.running = true;
+    state.settingsOpen = false;
     state.player = createPlayer();
     state.enemies = [];
     state.score = 0;
@@ -280,12 +304,163 @@
   function grantRandomBlades(entity, min, max) {
     const count = Math.floor(randBetween(entity.seed + time * 100, entity.blades.length + 1, min, max + 1));
     const current = entity.blades.length;
-    const limit = 14;
+    const limit = settings.maxBlades;
     const target = Math.min(limit, current + count);
     for (let i = current; i < target; i += 1) {
       entity.blades.push(createBlade(entity, (PI2 * i) / Math.max(target, 1)));
     }
     redistributeBlades(entity);
+  }
+
+  function enforceBladeLimit(entity) {
+    if (!entity) {
+      return;
+    }
+    if (entity.blades.length > settings.maxBlades) {
+      entity.blades.length = settings.maxBlades;
+      redistributeBlades(entity);
+    }
+  }
+
+  function applyBladeLimit() {
+    enforceBladeLimit(state.player);
+    for (const enemy of state.enemies) {
+      enforceBladeLimit(enemy);
+    }
+  }
+
+  function cloneSettingsToDraft() {
+    draftSettings.maxBlades = settings.maxBlades;
+    draftSettings.maxEnemyDropBlades = settings.maxEnemyDropBlades;
+    draftSettings.enemyDropChances = [...settings.enemyDropChances];
+    draftSettings.enemyDropChanceTexts = settings.enemyDropChances.map((value) => String(value));
+    draftSettings.showHitbox = settings.showHitbox;
+    draftSettings.showHelp = settings.showHelp;
+  }
+
+  function ensureDraftDropChanceLength() {
+    while (draftSettings.enemyDropChances.length < draftSettings.maxEnemyDropBlades) {
+      draftSettings.enemyDropChances.push(0);
+    }
+    draftSettings.enemyDropChances.length = draftSettings.maxEnemyDropBlades;
+
+    while (draftSettings.enemyDropChanceTexts.length < draftSettings.maxEnemyDropBlades) {
+      draftSettings.enemyDropChanceTexts.push("0");
+    }
+    draftSettings.enemyDropChanceTexts.length = draftSettings.maxEnemyDropBlades;
+  }
+
+  function parseChanceText(text) {
+    const value = Number.parseFloat(text);
+    if (!Number.isFinite(value)) {
+      return 0;
+    }
+    return Math.max(0, Math.min(1, value));
+  }
+
+  function syncSettingsInputs() {
+    maxBladesInput.value = String(draftSettings.maxBlades);
+    maxEnemyDropInput.value = String(draftSettings.maxEnemyDropBlades);
+    showHitboxInput.checked = draftSettings.showHitbox;
+    showHelpInput.checked = draftSettings.showHelp;
+  }
+
+  function syncHelpVisibility() {
+    helpPanel.classList.toggle("hidden", !settings.showHelp);
+  }
+
+  function renderDropChanceInputs() {
+    ensureDraftDropChanceLength();
+    dropChanceList.innerHTML = "";
+    for (let i = 0; i < draftSettings.maxEnemyDropBlades; i += 1) {
+      const item = document.createElement("div");
+      item.className = "settings-probability-item";
+
+      const label = document.createElement("label");
+      label.htmlFor = "dropChanceInput" + (i + 1);
+      label.textContent = (i + 1) + " 把剑";
+
+      const input = document.createElement("input");
+      input.id = "dropChanceInput" + (i + 1);
+      input.type = "number";
+      input.min = "0";
+      input.max = "1";
+      input.step = "0.01";
+      input.inputMode = "decimal";
+      input.value = draftSettings.enemyDropChanceTexts[i] ?? String(draftSettings.enemyDropChances[i] ?? 0);
+      input.addEventListener("input", () => {
+        draftSettings.enemyDropChanceTexts[i] = input.value;
+        draftSettings.enemyDropChances[i] = parseChanceText(input.value);
+        updateDropChanceSummary();
+      });
+      input.addEventListener("change", () => {
+        const totalWithoutCurrent = draftSettings.enemyDropChances.reduce((sum, value, index) => sum + (index === i ? 0 : value), 0);
+        const allowedMax = Math.max(0, 1 - totalWithoutCurrent);
+        const nextValue = Math.min(parseChanceText(input.value), allowedMax);
+        draftSettings.enemyDropChances[i] = nextValue;
+        draftSettings.enemyDropChanceTexts[i] = String(Number(nextValue.toFixed(2)));
+        input.value = draftSettings.enemyDropChanceTexts[i];
+        updateDropChanceSummary();
+      });
+
+      item.append(label, input);
+      dropChanceList.append(item);
+    }
+    updateDropChanceSummary();
+  }
+
+  function updateDropChanceSummary() {
+    const total = draftSettings.enemyDropChances.reduce((sum, value) => sum + value, 0);
+    const clampedTotal = Math.min(1, total);
+    const noneChance = Math.max(0, 1 - clampedTotal);
+    dropChanceSummary.textContent = "当前总和: " + clampedTotal.toFixed(2) + "，0 把掉落概率: " + noneChance.toFixed(2);
+  }
+
+  function openSettings() {
+    cloneSettingsToDraft();
+    syncSettingsInputs();
+    renderDropChanceInputs();
+    state.settingsOpen = true;
+    settingsPanel.classList.remove("hidden");
+  }
+
+  function closeSettings() {
+    state.settingsOpen = false;
+    settingsPanel.classList.add("hidden");
+  }
+
+  function rollEnemyDropCount(entity) {
+    const chances = settings.enemyDropChances.slice(0, settings.maxEnemyDropBlades).map((value) => Math.max(0, Math.min(1, value || 0)));
+    const roll = hash2(entity.x * 1.91, entity.y * 2.17);
+    let acc = 0;
+    for (let i = 0; i < chances.length; i += 1) {
+      acc += chances[i];
+      if (roll <= acc) {
+        return i + 1;
+      }
+    }
+    return 0;
+  }
+
+  function applyDraftSettings() {
+    ensureDraftDropChanceLength();
+    const total = draftSettings.enemyDropChances.reduce((sum, value) => sum + Math.max(0, Math.min(1, value || 0)), 0);
+    if (total > 1) {
+      let remaining = 1;
+      draftSettings.enemyDropChances = draftSettings.enemyDropChances.map((value) => {
+        const next = Math.max(0, Math.min(remaining, value || 0));
+        remaining -= next;
+        return Number(next.toFixed(2));
+      });
+    }
+    draftSettings.enemyDropChanceTexts = draftSettings.enemyDropChances.map((value) => String(Number(value.toFixed(2))));
+    settings.maxBlades = draftSettings.maxBlades;
+    settings.maxEnemyDropBlades = draftSettings.maxEnemyDropBlades;
+    settings.enemyDropChances = draftSettings.enemyDropChances.slice(0, draftSettings.maxEnemyDropBlades);
+    settings.showHitbox = draftSettings.showHitbox;
+    settings.showHelp = draftSettings.showHelp;
+    applyBladeLimit();
+    syncHelpVisibility();
   }
 
   function redistributeBlades(entity) {
@@ -780,7 +955,8 @@
     entity.blades.length = 0;
     if (entity.team === "enemy") {
       state.kills += 1;
-      for (let i = 0; i < 1 + Math.floor(hash2(entity.x, entity.y) * 2); i += 1) {
+      const dropCount = rollEnemyDropCount(entity);
+      for (let i = 0; i < dropCount; i += 1) {
         const angle = randBetween(entity.x + i, entity.y - i, 0, PI2);
         const distance = randBetween(entity.y + i, entity.x + i, 8, 28);
         addPickup(
@@ -878,7 +1054,7 @@
   }
 
   function update(dt) {
-    if (!state.running) {
+    if (!state.running || state.settingsOpen) {
       return;
     }
     time += dt;
@@ -923,6 +1099,48 @@
     };
   }
 
+  function lerp(a, b, t) {
+    return a + (b - a) * t;
+  }
+
+  function smoothstep(t) {
+    return t * t * (3 - 2 * t);
+  }
+
+  function valueNoise(x, y, scale) {
+    const scaledX = x / scale;
+    const scaledY = y / scale;
+    const x0 = Math.floor(scaledX);
+    const y0 = Math.floor(scaledY);
+    const tx = smoothstep(scaledX - x0);
+    const ty = smoothstep(scaledY - y0);
+    const n00 = hash2(x0, y0);
+    const n10 = hash2(x0 + 1, y0);
+    const n01 = hash2(x0, y0 + 1);
+    const n11 = hash2(x0 + 1, y0 + 1);
+    const nx0 = lerp(n00, n10, tx);
+    const nx1 = lerp(n01, n11, tx);
+    return lerp(nx0, nx1, ty);
+  }
+
+  function sampleBiome(worldX, worldY) {
+    const large = valueNoise(worldX + 1200, worldY - 800, 420);
+    const medium = valueNoise(worldX - 300, worldY + 500, 210);
+    const detail = valueNoise(worldX + 90, worldY + 60, 96);
+    return large * 0.58 + medium * 0.3 + detail * 0.12;
+  }
+
+  function floorSpriteKeyAt(worldX, worldY) {
+    const biome = sampleBiome(worldX, worldY);
+    if (biome > 0.64) {
+      return "floorStone";
+    }
+    if (biome < 0.3) {
+      return "floorGrass";
+    }
+    return "floorMeadow";
+  }
+
   function renderGround() {
     const gradient = ctx.createLinearGradient(0, 0, 0, viewHeight);
     gradient.addColorStop(0, "#17243b");
@@ -942,9 +1160,7 @@
         const worldX = gx * tile;
         const worldY = gy * tile;
         const screen = worldToScreen(worldX, worldY);
-        const noise = hash2(gx, gy);
-        const biome = hash2(Math.floor(gx / 4), Math.floor(gy / 4));
-        const spriteKey = biome > 0.68 ? "floorStone" : biome < 0.24 ? "floorGrass" : "floorMeadow";
+        const spriteKey = floorSpriteKeyAt(worldX, worldY);
         const floorSprite = assets[spriteKey];
         const floorLoaded = floorSprite && floorSprite.loaded;
         if (floorLoaded) {
@@ -952,30 +1168,6 @@
         } else {
           ctx.fillStyle = "#7a7a7a";
           ctx.fillRect(Math.floor(screen.x), Math.floor(screen.y), tile + 1, tile + 1);
-          continue;
-        }
-
-        if (biome > 0.7) {
-          ctx.fillStyle = "rgba(255,255,255,0.04)";
-          ctx.fillRect(Math.floor(screen.x) + 4, Math.floor(screen.y) + 4, tile - 10, 5);
-          ctx.fillStyle = "rgba(0,0,0,0.12)";
-          ctx.fillRect(Math.floor(screen.x) + 6, Math.floor(screen.y) + tile - 10, tile - 12, 4);
-        }
-
-        if (biome < 0.25) {
-          ctx.fillStyle = "rgba(55, 150, 124, 0.22)";
-          ctx.fillRect(Math.floor(screen.x) + 8, Math.floor(screen.y) + 18, tile - 16, tile - 24);
-        }
-
-        if (noise > 0.58 && noise < 0.66) {
-          ctx.fillStyle = "rgba(158, 228, 167, 0.10)";
-          ctx.fillRect(Math.floor(screen.x) + 10, Math.floor(screen.y) + 11, 8, 8);
-          ctx.fillRect(Math.floor(screen.x) + 29, Math.floor(screen.y) + 28, 7, 7);
-        }
-
-        if (noise < 0.08) {
-          ctx.fillStyle = "rgba(123, 191, 255, 0.12)";
-          ctx.fillRect(Math.floor(screen.x) + 14, Math.floor(screen.y) + 16, tile - 28, tile - 30);
         }
       }
     }
@@ -1196,7 +1388,7 @@
       }
     }
 
-    if (SHOW_HITBOX) {
+    if (settings.showHitbox) {
       drawHitboxes();
     }
 
@@ -1302,10 +1494,40 @@
   }, { passive: true });
 
   restartButton.addEventListener("click", restartGame);
+  settingsToggle.addEventListener("click", () => {
+    if (state.settingsOpen) {
+      closeSettings();
+      return;
+    }
+    openSettings();
+  });
+  maxBladesInput.addEventListener("input", () => {
+    const nextValue = Math.max(1, Math.min(32, Number.parseInt(maxBladesInput.value || "14", 10) || 14));
+    draftSettings.maxBlades = nextValue;
+    maxBladesInput.value = String(nextValue);
+  });
+  maxEnemyDropInput.addEventListener("input", () => {
+    const nextValue = Math.max(1, Math.min(5, Number.parseInt(maxEnemyDropInput.value || "2", 10) || 2));
+    draftSettings.maxEnemyDropBlades = nextValue;
+    maxEnemyDropInput.value = String(nextValue);
+    renderDropChanceInputs();
+  });
+  showHitboxInput.addEventListener("change", () => {
+    draftSettings.showHitbox = showHitboxInput.checked;
+  });
+  showHelpInput.addEventListener("change", () => {
+    draftSettings.showHelp = showHelpInput.checked;
+  });
+  settingsCancel.addEventListener("click", closeSettings);
+  settingsConfirm.addEventListener("click", () => {
+    applyDraftSettings();
+    closeSettings();
+  });
   window.addEventListener("resize", resize);
 
   resize();
   state.player = createPlayer();
+  syncHelpVisibility();
   ensureChunksAround(0, 0);
   preloadAssets();
   requestAnimationFrame(loop);
