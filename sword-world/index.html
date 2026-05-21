@@ -23,40 +23,72 @@
           <strong>游戏设置</strong>
         </div>
         <div class="settings-content">
-          <div class="settings-row">
-            <label for="maxBladesInput">最大持剑数</label>
-            <input id="maxBladesInput" type="number" min="1" max="32" step="1" value="15">
+          <div class="settings-group">
+            <div class="settings-group-title">基础规则</div>
+            <div class="settings-row">
+              <label for="maxBladesInput">最大持剑数</label>
+              <input id="maxBladesInput" type="number" min="1" max="32" step="1" value="15">
+            </div>
+            <label class="settings-check" for="keepBladeOnKillInput">
+              <input id="keepBladeOnKillInput" type="checkbox">
+              <span>击杀敌人不消耗剑</span>
+            </label>
           </div>
-          <div class="settings-row">
-            <label for="maxEnemyDropInput">最多爆出几把剑</label>
-            <input id="maxEnemyDropInput" type="number" min="1" max="5" step="1" value="2">
-          </div>
-          <label class="settings-check" for="showHitboxInput">
-            <input id="showHitboxInput" type="checkbox">
-            <span>显示 hit box</span>
-          </label>
-          <label class="settings-check" for="showHelpInput">
-            <input id="showHelpInput" type="checkbox">
-            <span>显示帮助</span>
-          </label>
-          <div class="settings-tier-sections">
-            <div class="settings-probabilities">
-              <span class="settings-label">三级剑转速</span>
-              <div id="tierSpeedList" class="settings-probability-list"></div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">敌人掉落</div>
+            <div class="settings-row">
+              <label for="maxEnemyDropInput">最多爆出几把剑</label>
+              <input id="maxEnemyDropInput" type="number" min="1" max="5" step="1" value="2">
             </div>
             <div class="settings-probabilities">
-              <span class="settings-label">三级剑转速偏移</span>
-              <div id="tierVarianceList" class="settings-probability-list"></div>
-            </div>
-            <div class="settings-probabilities">
-              <span class="settings-label">三级剑爆率权重（自动归一化）</span>
-              <div id="tierRateList" class="settings-probability-list"></div>
+              <span class="settings-label">掉剑数量概率（0-1，总和不超过 1）</span>
+              <div id="dropChanceList" class="settings-probability-list"></div>
+              <span id="dropChanceSummary" class="settings-summary"></span>
             </div>
           </div>
-          <div class="settings-probabilities">
-            <span class="settings-label">掉剑数量概率（0-1，总和不超过 1）</span>
-            <div id="dropChanceList" class="settings-probability-list"></div>
-            <span id="dropChanceSummary" class="settings-summary"></span>
+
+          <div class="settings-group">
+            <div class="settings-group-title">拾取生成</div>
+            <div class="settings-row">
+              <label for="pickupBladeCountInput">每把掉落剑最多生成几把旋转剑</label>
+              <input id="pickupBladeCountInput" type="number" min="1" max="8" step="1" value="5">
+            </div>
+            <div class="settings-probabilities">
+              <span class="settings-label">生成旋转剑数量概率（0-1，总和不超过 1）</span>
+              <div id="pickupBladeChanceList" class="settings-probability-list"></div>
+              <span id="pickupBladeChanceSummary" class="settings-summary"></span>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">剑等级</div>
+            <div class="settings-tier-sections">
+              <div class="settings-probabilities">
+                <span class="settings-label">三级剑转速</span>
+                <div id="tierSpeedList" class="settings-probability-list"></div>
+              </div>
+              <div class="settings-probabilities">
+                <span class="settings-label">三级剑转速偏移</span>
+                <div id="tierVarianceList" class="settings-probability-list"></div>
+              </div>
+              <div class="settings-probabilities">
+                <span class="settings-label">三级剑爆率权重（自动归一化）</span>
+                <div id="tierRateList" class="settings-probability-list"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="settings-group">
+            <div class="settings-group-title">显示</div>
+            <label class="settings-check" for="showHitboxInput">
+              <input id="showHitboxInput" type="checkbox">
+              <span>显示 hit box</span>
+            </label>
+            <label class="settings-check" for="showHelpInput">
+              <input id="showHelpInput" type="checkbox">
+              <span>显示帮助</span>
+            </label>
           </div>
         </div>
         <div class="settings-actions">

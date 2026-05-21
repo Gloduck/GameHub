@@ -11,6 +11,8 @@
   const helpPanel = document.getElementById("helpPanel");
   const maxBladesInput = document.getElementById("maxBladesInput");
   const maxEnemyDropInput = document.getElementById("maxEnemyDropInput");
+  const pickupBladeCountInput = document.getElementById("pickupBladeCountInput");
+  const keepBladeOnKillInput = document.getElementById("keepBladeOnKillInput");
   const showHitboxInput = document.getElementById("showHitboxInput");
   const showHelpInput = document.getElementById("showHelpInput");
   const tierSpeedList = document.getElementById("tierSpeedList");
@@ -18,6 +20,8 @@
   const tierRateList = document.getElementById("tierRateList");
   const dropChanceList = document.getElementById("dropChanceList");
   const dropChanceSummary = document.getElementById("dropChanceSummary");
+  const pickupBladeChanceList = document.getElementById("pickupBladeChanceList");
+  const pickupBladeChanceSummary = document.getElementById("pickupBladeChanceSummary");
   const settingsCancel = document.getElementById("settingsCancel");
   const settingsConfirm = document.getElementById("settingsConfirm");
 
@@ -124,8 +128,11 @@
   };
   const settings = {
     maxBlades: 15,
+    keepBladeOnKill: false,
     maxEnemyDropBlades: 2,
     enemyDropChances: [0.4, 0.1],
+    maxPickupBladeCount: 5,
+    pickupBladeChances: [0.2, 0.2, 0.2, 0.2, 0.2],
     tierSpinSpeeds: [1.55, 2.45, 3.2],
     tierSpinVariances: [0.95, 0.45, 0.18],
     tierSpawnRates: [0.7, 0.22, 0.08],
@@ -134,9 +141,13 @@
   };
   const draftSettings = {
     maxBlades: settings.maxBlades,
+    keepBladeOnKill: settings.keepBladeOnKill,
     maxEnemyDropBlades: settings.maxEnemyDropBlades,
     enemyDropChances: [...settings.enemyDropChances],
     enemyDropChanceTexts: settings.enemyDropChances.map((value) => String(value)),
+    maxPickupBladeCount: settings.maxPickupBladeCount,
+    pickupBladeChances: [...settings.pickupBladeChances],
+    pickupBladeChanceTexts: settings.pickupBladeChances.map((value) => String(value)),
     tierSpinSpeeds: [...settings.tierSpinSpeeds],
     tierSpinSpeedTexts: settings.tierSpinSpeeds.map((value) => String(value)),
     tierSpinVariances: [...settings.tierSpinVariances],
@@ -406,6 +417,16 @@
     redistributeBlades(entity);
   }
 
+  function grantTierBladeCount(entity, count, tierId) {
+    const current = entity.blades.length;
+    const limit = settings.maxBlades;
+    const target = Math.min(limit, current + Math.max(0, count));
+    for (let i = current; i < target; i += 1) {
+      entity.blades.push(createBlade(entity, (PI2 * i) / Math.max(target, 1), tierId));
+    }
+    redistributeBlades(entity);
+  }
+
   function enforceBladeLimit(entity) {
     if (!entity) {
       return;
@@ -447,6 +468,9 @@
     draftSettings.maxEnemyDropBlades = settings.maxEnemyDropBlades;
     draftSettings.enemyDropChances = [...settings.enemyDropChances];
     draftSettings.enemyDropChanceTexts = settings.enemyDropChances.map((value) => String(value));
+    draftSettings.maxPickupBladeCount = settings.maxPickupBladeCount;
+    draftSettings.pickupBladeChances = [...settings.pickupBladeChances];
+    draftSettings.pickupBladeChanceTexts = settings.pickupBladeChances.map((value) => String(value));
     draftSettings.tierSpinSpeeds = [...settings.tierSpinSpeeds];
     draftSettings.tierSpinSpeedTexts = settings.tierSpinSpeeds.map((value) => String(value));
     draftSettings.tierSpinVariances = [...settings.tierSpinVariances];
@@ -469,6 +493,18 @@
     draftSettings.enemyDropChanceTexts.length = draftSettings.maxEnemyDropBlades;
   }
 
+  function ensureDraftPickupBladeChanceLength() {
+    while (draftSettings.pickupBladeChances.length < draftSettings.maxPickupBladeCount) {
+      draftSettings.pickupBladeChances.push(0);
+    }
+    draftSettings.pickupBladeChances.length = draftSettings.maxPickupBladeCount;
+
+    while (draftSettings.pickupBladeChanceTexts.length < draftSettings.maxPickupBladeCount) {
+      draftSettings.pickupBladeChanceTexts.push("0");
+    }
+    draftSettings.pickupBladeChanceTexts.length = draftSettings.maxPickupBladeCount;
+  }
+
   function parseChanceText(text) {
     const value = Number.parseFloat(text);
     if (!Number.isFinite(value)) {
@@ -487,7 +523,9 @@
 
   function syncSettingsInputs() {
     maxBladesInput.value = String(draftSettings.maxBlades);
+    keepBladeOnKillInput.checked = draftSettings.keepBladeOnKill;
     maxEnemyDropInput.value = String(draftSettings.maxEnemyDropBlades);
+    pickupBladeCountInput.value = String(draftSettings.maxPickupBladeCount);
     showHitboxInput.checked = draftSettings.showHitbox;
     showHelpInput.checked = draftSettings.showHelp;
   }
@@ -631,11 +669,59 @@
     dropChanceSummary.textContent = "当前总和: " + clampedTotal.toFixed(2) + "，0 把掉落概率: " + noneChance.toFixed(2);
   }
 
+  function renderPickupBladeChanceInputs() {
+    ensureDraftPickupBladeChanceLength();
+    pickupBladeChanceList.innerHTML = "";
+    for (let i = 0; i < draftSettings.maxPickupBladeCount; i += 1) {
+      const item = document.createElement("div");
+      item.className = "settings-probability-item";
+
+      const label = document.createElement("label");
+      label.htmlFor = "pickupBladeChanceInput" + (i + 1);
+      label.textContent = (i + 1) + " 把旋转剑";
+
+      const input = document.createElement("input");
+      input.id = "pickupBladeChanceInput" + (i + 1);
+      input.type = "number";
+      input.min = "0";
+      input.max = "1";
+      input.step = "0.01";
+      input.inputMode = "decimal";
+      input.value = draftSettings.pickupBladeChanceTexts[i] ?? String(draftSettings.pickupBladeChances[i] ?? 0);
+      input.addEventListener("input", () => {
+        draftSettings.pickupBladeChanceTexts[i] = input.value;
+        draftSettings.pickupBladeChances[i] = parseChanceText(input.value);
+        updatePickupBladeChanceSummary();
+      });
+      input.addEventListener("change", () => {
+        const totalWithoutCurrent = draftSettings.pickupBladeChances.reduce((sum, value, index) => sum + (index === i ? 0 : value), 0);
+        const allowedMax = Math.max(0, 1 - totalWithoutCurrent);
+        const nextValue = Math.min(parseChanceText(input.value), allowedMax);
+        draftSettings.pickupBladeChances[i] = nextValue;
+        draftSettings.pickupBladeChanceTexts[i] = String(Number(nextValue.toFixed(2)));
+        input.value = draftSettings.pickupBladeChanceTexts[i];
+        updatePickupBladeChanceSummary();
+      });
+
+      item.append(label, input);
+      pickupBladeChanceList.append(item);
+    }
+    updatePickupBladeChanceSummary();
+  }
+
+  function updatePickupBladeChanceSummary() {
+    const total = draftSettings.pickupBladeChances.reduce((sum, value) => sum + value, 0);
+    const clampedTotal = Math.min(1, total);
+    const noneChance = Math.max(0, 1 - clampedTotal);
+    pickupBladeChanceSummary.textContent = "当前总和: " + clampedTotal.toFixed(2) + "，0 把旋转剑概率: " + noneChance.toFixed(2);
+  }
+
   function openSettings() {
     cloneSettingsToDraft();
     syncSettingsInputs();
     renderTierSettingInputs();
     renderDropChanceInputs();
+    renderPickupBladeChanceInputs();
     state.settingsOpen = true;
     settingsPanel.classList.remove("hidden");
   }
@@ -658,6 +744,19 @@
     return 0;
   }
 
+  function rollPickupBladeCount(pickup) {
+    const chances = settings.pickupBladeChances.slice(0, settings.maxPickupBladeCount).map((value) => Math.max(0, Math.min(1, value || 0)));
+    const roll = hash2(pickup.x * 2.31, pickup.y * 1.73);
+    let acc = 0;
+    for (let i = 0; i < chances.length; i += 1) {
+      acc += chances[i];
+      if (roll <= acc) {
+        return i + 1;
+      }
+    }
+    return 0;
+  }
+
   function applyDraftSettings() {
     ensureDraftDropChanceLength();
     const total = draftSettings.enemyDropChances.reduce((sum, value) => sum + Math.max(0, Math.min(1, value || 0)), 0);
@@ -670,9 +769,23 @@
       });
     }
     draftSettings.enemyDropChanceTexts = draftSettings.enemyDropChances.map((value) => String(Number(value.toFixed(2))));
+    ensureDraftPickupBladeChanceLength();
+    const pickupTotal = draftSettings.pickupBladeChances.reduce((sum, value) => sum + Math.max(0, Math.min(1, value || 0)), 0);
+    if (pickupTotal > 1) {
+      let remaining = 1;
+      draftSettings.pickupBladeChances = draftSettings.pickupBladeChances.map((value) => {
+        const next = Math.max(0, Math.min(remaining, value || 0));
+        remaining -= next;
+        return Number(next.toFixed(2));
+      });
+    }
+    draftSettings.pickupBladeChanceTexts = draftSettings.pickupBladeChances.map((value) => String(Number(value.toFixed(2))));
     settings.maxBlades = draftSettings.maxBlades;
+    settings.keepBladeOnKill = draftSettings.keepBladeOnKill;
     settings.maxEnemyDropBlades = draftSettings.maxEnemyDropBlades;
     settings.enemyDropChances = draftSettings.enemyDropChances.slice(0, draftSettings.maxEnemyDropBlades);
+    settings.maxPickupBladeCount = draftSettings.maxPickupBladeCount;
+    settings.pickupBladeChances = draftSettings.pickupBladeChances.slice(0, draftSettings.maxPickupBladeCount);
     settings.tierSpinSpeeds = draftSettings.tierSpinSpeeds.map((value) => Number(parseSpeedText(String(value), 2.5).toFixed(2)));
     settings.tierSpinVariances = draftSettings.tierSpinVariances.map((value) => Number(parseSpeedText(String(value), 0).toFixed(2)));
     settings.tierSpawnRates = draftSettings.tierSpawnRates.map((value) => Number(parseChanceText(String(value)).toFixed(2)));
@@ -1142,7 +1255,7 @@
         }
         if (Math.hypot(entity.x - pickup.x, entity.y - pickup.y) <= entity.radius + 12) {
           world.pickups.delete(pickup.id);
-          grantTierBlades(entity, 1, 5, pickup.tierId);
+          grantTierBladeCount(entity, rollPickupBladeCount(pickup), pickup.tierId);
           const tier = swordTierById(pickup.tierId);
           spawnBurst(pickup.x, pickup.y, entity.team === "player" ? tier.burstPlayer : tier.burstEnemy, 8, 76, 0.32, 4);
         }
@@ -1225,6 +1338,9 @@
         const hitbox = bladeRect(player, blade);
         if (shapesIntersect(hitbox, { shape: "circle", ...entityCircle(enemy) })) {
           spawnSlashTrail(hitbox.x, hitbox.y, "player");
+          if (!settings.keepBladeOnKill) {
+            removeBlade(player, blade);
+          }
           killEntity(enemy);
           break;
         }
@@ -1730,11 +1846,20 @@
     draftSettings.maxBlades = nextValue;
     maxBladesInput.value = String(nextValue);
   });
+  keepBladeOnKillInput.addEventListener("change", () => {
+    draftSettings.keepBladeOnKill = keepBladeOnKillInput.checked;
+  });
   maxEnemyDropInput.addEventListener("input", () => {
     const nextValue = Math.max(1, Math.min(5, Number.parseInt(maxEnemyDropInput.value || "2", 10) || 2));
     draftSettings.maxEnemyDropBlades = nextValue;
     maxEnemyDropInput.value = String(nextValue);
     renderDropChanceInputs();
+  });
+  pickupBladeCountInput.addEventListener("input", () => {
+    const nextValue = Math.max(1, Math.min(8, Number.parseInt(pickupBladeCountInput.value || "5", 10) || 5));
+    draftSettings.maxPickupBladeCount = nextValue;
+    pickupBladeCountInput.value = String(nextValue);
+    renderPickupBladeChanceInputs();
   });
   showHitboxInput.addEventListener("change", () => {
     draftSettings.showHitbox = showHitboxInput.checked;
