@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>刀刃漫游</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="game-shell">
+    <canvas id="game" aria-label="刀刃漫游游戏画布"></canvas>
+    <section class="hud hud-top">
+      <div class="panel brand">
+        <strong>刀刃漫游</strong>
+        <span>无限像素旷野生存</span>
+      </div>
+      <div class="panel stats">
+        <span>生存 <b id="surviveTime">0.0s</b></span>
+        <span>击败 <b id="killCount">0</b></span>
+        <span>持刀 <b id="bladeCount">0</b></span>
+      </div>
+    </section>
+    <section class="hud hud-bottom">
+      <div class="panel controls">
+        <span>移动：WASD / 方向键 / 左侧触控摇杆</span>
+        <span>规则：拾刀后随机获得 1-5 把旋转刀，刀对刀可互相抵消，刀碰树木会碎裂</span>
+      </div>
+    </section>
+    <section class="overlay" id="overlay">
+      <div class="overlay-card">
+        <h1>刀刃漫游</h1>
+        <p>在无限延展的像素地图中移动，抢刀、绕刀、卡空隙。</p>
+        <p>敌人也会抢地上的刀，并主动追你。你的刀墙一旦出现缺口，被敌刀碰到就会直接阵亡。</p>
+        <button id="restartButton" type="button">开始游戏</button>
+      </div>
+    </section>
+  </main>
+  <script src="game.js?v=20260521-sheet-fix"></script>
+</body>
+</html>
