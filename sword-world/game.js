@@ -13,6 +13,7 @@
   const MAX_ENEMIES = 18;
   const BLADE_DISTANCE = 48;
   const BLADE_SIZE = 10;
+  const PICKUP_RADIUS = 12;
   const BODY_RADIUS = 20;
   const ENEMY_BODY_RADIUS = 18;
   const PLAYER_SPEED = 190;
@@ -21,6 +22,10 @@
   const CAMERA_PULLBACK = 0.88;
   const PI2 = Math.PI * 2;
   const WORLD_SEED = 71237;
+  const SHOW_HITBOX = (() => {
+    const value = new URLSearchParams(window.location.search).get("hitbox");
+    return value === "1" || value === "true" || value === "on" || value === "show";
+  })();
 
   const keys = new Set();
   const chunks = new Map();
@@ -70,209 +75,14 @@
     kills: 0,
   };
 
-  const playerSprite = [
-    "....1111....",
-    "...122221...",
-    "...123321...",
-    "..12222221..",
-    "..24455442..",
-    "..24677642..",
-    "..24677642..",
-    "...288882...",
-    "...289982...",
-    "..28AAAA82..",
-    "..8A....A8..",
-    "..7......7..",
-  ];
-
-  const enemySprites = [
-    {
-      pixels: [
-        "....1111....",
-        "...122221...",
-        "...123321...",
-        "..12222221..",
-        "..24455442..",
-        "..24688642..",
-        "..24688642..",
-        "...277772...",
-        "...279972...",
-        "..27999972..",
-        "..6A....A6..",
-        "..5......5..",
-      ],
-      palette: {
-        1: "#ded6ff",
-        2: "#c8bee6",
-        3: "#8f7bc0",
-        4: "#f7d8c7",
-        5: "#f4a5be",
-        6: "#7d7699",
-        7: "#c9d8ff",
-        8: "#ffffff",
-        9: "#95a1dc",
-        A: "#433852",
-      },
-    },
-    {
-      pixels: [
-        "....1111....",
-        "...122221...",
-        "..12333221..",
-        "..12222221..",
-        "..24455442..",
-        "..24699642..",
-        "..24699642..",
-        "...277772...",
-        "...28BB82...",
-        "..28BBBB82..",
-        "..6C....C6..",
-        "..5......5..",
-      ],
-      palette: {
-        1: "#fff2c7",
-        2: "#f2d886",
-        3: "#db9f42",
-        4: "#f6d0c5",
-        5: "#f2a7b8",
-        6: "#6c4b51",
-        7: "#ffd7f0",
-        8: "#fefefe",
-        9: "#f5e39a",
-        B: "#df8476",
-        C: "#59303d",
-      },
-    },
-    {
-      pixels: [
-        "....1111....",
-        "...122221...",
-        "..12333221..",
-        "..12222221..",
-        "..24455442..",
-        "..24688642..",
-        "..24688642..",
-        "...277772...",
-        "...28DD82...",
-        "..28DDDD82..",
-        "..6E....E6..",
-        "..5......5..",
-      ],
-      palette: {
-        1: "#dbf8f5",
-        2: "#a1d4cd",
-        3: "#5ea9a0",
-        4: "#f7d7c7",
-        5: "#e89ca9",
-        6: "#466567",
-        7: "#f6fffd",
-        8: "#ffffff",
-        D: "#4f7dd4",
-        E: "#24385e",
-      },
-    },
-  ];
-
-  const playerPalette = {
-    1: "#9cc7ff",
-    2: "#66a1ff",
-    3: "#2f5ab8",
-    4: "#f5d5c8",
-    5: "#ff7ca8",
-    6: "#ffffff",
-    7: "#49385c",
-    8: "#6fa8ff",
-    9: "#f7f4ff",
-    A: "#ffd56c",
+  const obstacleColliderConfig = {
+    tree: { shape: "circle", offsetX: 0, offsetY: 18, radius: 24 },
+    sakura: { shape: "circle", offsetX: 0, offsetY: 18, radius: 24 },
+    stump: { shape: "rect", offsetX: 0, offsetY: 2, width: 34, height: 20 },
+    crystal: { shape: "rect", offsetX: 0, offsetY: -2, width: 24, height: 46 },
+    lantern: { shape: "rect", offsetX: 0, offsetY: 7, width: 20, height: 30 },
+    ruin: { shape: "rect", offsetX: 0, offsetY: 6, width: 40, height: 28 },
   };
-
-  const playerVisual = {
-    hair: "#7fc3ff",
-    hairDark: "#346dc4",
-    outfit: "#edf6ff",
-    outfitDark: "#6fa7ff",
-    accent: "#ffe07a",
-    accentDark: "#ff8fb5",
-    skin: "#f5d5c8",
-    outline: "#21314f",
-    shadow: "rgba(96, 170, 255, 0.24)",
-    aura: "rgba(158, 224, 255, 0.22)",
-    scarf: "#ffd1dd",
-    tint: "rgba(120, 208, 255, 0.14)",
-  };
-
-  const enemyVisuals = [
-    {
-      hair: "#f2d7ff",
-      hairDark: "#8264b3",
-      outfit: "#f7f0ff",
-      outfitDark: "#8f79c7",
-      accent: "#ff8cbc",
-      accentDark: "#533a6a",
-      skin: "#f7d8c7",
-      outline: "#2c2138",
-      shadow: "rgba(255, 137, 191, 0.20)",
-      aura: "rgba(255, 176, 222, 0.17)",
-      scarf: "#cfd8ff",
-      tint: "rgba(255, 170, 220, 0.12)",
-    },
-    {
-      hair: "#fff0be",
-      hairDark: "#c99243",
-      outfit: "#fff8f0",
-      outfitDark: "#d97577",
-      accent: "#ffe486",
-      accentDark: "#6b4352",
-      skin: "#f6d0c5",
-      outline: "#46313d",
-      shadow: "rgba(255, 205, 126, 0.17)",
-      aura: "rgba(255, 210, 145, 0.14)",
-      scarf: "#ffd8ef",
-      tint: "rgba(255, 220, 150, 0.10)",
-    },
-    {
-      hair: "#d9fbf6",
-      hairDark: "#4aa29a",
-      outfit: "#effeff",
-      outfitDark: "#4d7bd4",
-      accent: "#8fe8ff",
-      accentDark: "#274366",
-      skin: "#f7d7c7",
-      outline: "#21354b",
-      shadow: "rgba(123, 228, 219, 0.18)",
-      aura: "rgba(142, 244, 255, 0.15)",
-      scarf: "#cce9ff",
-      tint: "rgba(120, 244, 230, 0.10)",
-    },
-    {
-      hair: "#f8ebb1",
-      hairDark: "#b98a2f",
-      outfit: "#2d2630",
-      outfitDark: "#9e7c2d",
-      accent: "#ffe488",
-      accentDark: "#5f4a18",
-      skin: "#f5d0c2",
-      outline: "#281f24",
-      shadow: "rgba(255, 196, 96, 0.16)",
-      aura: "rgba(255, 219, 120, 0.12)",
-      scarf: "#f6d67f",
-      tint: "rgba(255, 214, 127, 0.11)",
-    },
-    {
-      hair: "#d8fff1",
-      hairDark: "#68b89f",
-      outfit: "#f3fff9",
-      outfitDark: "#73c4a3",
-      accent: "#bdfad8",
-      accentDark: "#3e6a5b",
-      skin: "#f7d8ca",
-      outline: "#244036",
-      shadow: "rgba(132, 255, 204, 0.15)",
-      aura: "rgba(187, 255, 221, 0.11)",
-      scarf: "#f3fff9",
-      tint: "rgba(190, 255, 222, 0.10)",
-    },
-  ];
 
   function loadImageAsset(key, config) {
     return new Promise((resolve) => {
@@ -348,24 +158,20 @@
       vx: 0,
       vy: 0,
       radius: BODY_RADIUS,
+      hitRadius: 18,
       speed: PLAYER_SPEED,
       blades: [],
       alive: true,
       facing: 1,
       direction8: 0,
       seed: 101,
-      sprite: playerSprite,
-      palette: playerPalette,
-      visual: playerVisual,
       assetSheet: "playerSheet",
       blink: 0,
     };
   }
 
   function createEnemy(x, y) {
-    const variant = enemySprites[nextEnemyId % enemySprites.length];
     const enemyBases = ["enemyRose", "enemyTeal", "enemyGold", "enemyMint"];
-    const visual = enemyVisuals[nextEnemyId % enemyVisuals.length];
     const assetBase = enemyBases[nextEnemyId % enemyBases.length];
     const enemy = {
       id: nextEnemyId++,
@@ -375,15 +181,13 @@
       vx: 0,
       vy: 0,
       radius: ENEMY_BODY_RADIUS,
+      hitRadius: 17,
       speed: ENEMY_SPEED + randBetween(x, y, -8, 18),
       blades: [],
       alive: true,
       facing: -1,
       direction8: 0,
       seed: x * 13.37 + y * 7.17,
-      sprite: variant.pixels,
-      palette: variant.palette,
-      visual,
       assetSheet: assetBase + "Sheet",
       blink: randBetween(x, y, 0, PI2),
     };
@@ -421,6 +225,7 @@
       settle: options?.settle || 0,
       scale: options?.scale || 0.72,
     };
+    resolvePickupObstacleCollisions(pickup);
     world.pickups.set(pickup.id, pickup);
     return pickup;
   }
@@ -490,6 +295,177 @@
     });
   }
 
+  function obstacleCollider(type) {
+    return obstacleColliderConfig[type] || { shape: "circle", offsetX: 0, offsetY: 0, radius: 18 };
+  }
+
+  function obstacleBroadRadius(collider) {
+    if (collider.shape === "circle") {
+      return collider.radius;
+    }
+    return Math.hypot(collider.width * 0.5, collider.height * 0.5);
+  }
+
+  function entityCircle(entity) {
+    return { x: entity.x, y: entity.y, radius: entity.hitRadius || entity.radius };
+  }
+
+  function bladeRect(entity, blade) {
+    const pos = bladePosition(entity, blade);
+    const tangent = blade.angle + Math.PI * 0.5;
+    const centerOffset = blade.size * 0.4;
+    return {
+      shape: "rect",
+      x: pos.x + Math.cos(tangent) * centerOffset,
+      y: pos.y + Math.sin(tangent) * centerOffset,
+      width: blade.size * 1.4,
+      height: blade.size * 4.6,
+      rotation: tangent,
+    };
+  }
+
+  function obstacleShape(obstacle) {
+    const collider = obstacle.collider || obstacleCollider(obstacle.type);
+    if (collider.shape === "circle") {
+      return {
+        shape: "circle",
+        x: obstacle.x + collider.offsetX,
+        y: obstacle.y + collider.offsetY,
+        radius: collider.radius,
+      };
+    }
+    return {
+      shape: "rect",
+      x: obstacle.x + collider.offsetX,
+      y: obstacle.y + collider.offsetY,
+      width: collider.width,
+      height: collider.height,
+      rotation: 0,
+    };
+  }
+
+  function clamp(value, min, max) {
+    return Math.max(min, Math.min(max, value));
+  }
+
+  function rotatePoint(x, y, angle) {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    return {
+      x: x * cos - y * sin,
+      y: x * sin + y * cos,
+    };
+  }
+
+  function circleIntersectsCircle(a, b) {
+    return Math.hypot(a.x - b.x, a.y - b.y) < a.radius + b.radius;
+  }
+
+  function circleIntersectsRect(circle, rect) {
+    const local = rotatePoint(circle.x - rect.x, circle.y - rect.y, -(rect.rotation || 0));
+    const halfW = rect.width * 0.5;
+    const halfH = rect.height * 0.5;
+    const closestX = clamp(local.x, -halfW, halfW);
+    const closestY = clamp(local.y, -halfH, halfH);
+    const dx = local.x - closestX;
+    const dy = local.y - closestY;
+    return dx * dx + dy * dy < circle.radius * circle.radius;
+  }
+
+  function shapesIntersect(a, b) {
+    if (a.shape === "circle" && b.shape === "circle") {
+      return circleIntersectsCircle(a, b);
+    }
+    if (a.shape === "circle" && b.shape === "rect") {
+      return circleIntersectsRect(a, b);
+    }
+    if (a.shape === "rect" && b.shape === "circle") {
+      return circleIntersectsRect(b, a);
+    }
+    const aRadius = Math.hypot(a.width * 0.5, a.height * 0.5);
+    const bRadius = Math.hypot(b.width * 0.5, b.height * 0.5);
+    return Math.hypot(a.x - b.x, a.y - b.y) < aRadius + bRadius;
+  }
+
+  function pushCircleOutOfCircle(circle, blocker) {
+    const dx = circle.x - blocker.x;
+    const dy = circle.y - blocker.y;
+    const dist = Math.hypot(dx, dy) || 0.001;
+    const overlap = circle.radius + blocker.radius - dist;
+    if (overlap <= 0) {
+      return { x: 0, y: 0 };
+    }
+    return {
+      x: (dx / dist) * overlap,
+      y: (dy / dist) * overlap,
+    };
+  }
+
+  function pushCircleOutOfRect(circle, rect) {
+    const local = rotatePoint(circle.x - rect.x, circle.y - rect.y, -(rect.rotation || 0));
+    const halfW = rect.width * 0.5;
+    const halfH = rect.height * 0.5;
+    const closestX = clamp(local.x, -halfW, halfW);
+    const closestY = clamp(local.y, -halfH, halfH);
+    let deltaX = local.x - closestX;
+    let deltaY = local.y - closestY;
+    let dist = Math.hypot(deltaX, deltaY);
+    let pushX = 0;
+    let pushY = 0;
+
+    if (dist > 0.001) {
+      const overlap = circle.radius - dist;
+      if (overlap <= 0) {
+        return { x: 0, y: 0 };
+      }
+      pushX = (deltaX / dist) * overlap;
+      pushY = (deltaY / dist) * overlap;
+    } else {
+      const left = halfW + local.x;
+      const right = halfW - local.x;
+      const top = halfH + local.y;
+      const bottom = halfH - local.y;
+      const minAxis = Math.min(left, right, top, bottom);
+      if (minAxis === left) {
+        pushX = -(circle.radius + left);
+      } else if (minAxis === right) {
+        pushX = circle.radius + right;
+      } else if (minAxis === top) {
+        pushY = -(circle.radius + top);
+      } else {
+        pushY = circle.radius + bottom;
+      }
+    }
+
+    return rotatePoint(pushX, pushY, rect.rotation || 0);
+  }
+
+  function resolvePickupObstacleCollisions(pickup) {
+    const body = { x: pickup.x, y: pickup.y, radius: PICKUP_RADIUS };
+    for (let i = 0; i < 3; i += 1) {
+      let moved = false;
+      forNearbyObstacles(body.x, body.y, 120, (obstacle) => {
+        if (Math.abs(obstacle.x - body.x) > 80 || Math.abs(obstacle.y - body.y) > 80) {
+          return;
+        }
+        const shape = obstacleShape(obstacle);
+        const push = shape.shape === "circle"
+          ? pushCircleOutOfCircle(body, shape)
+          : pushCircleOutOfRect(body, shape);
+        if (push.x || push.y) {
+          body.x += push.x;
+          body.y += push.y;
+          moved = true;
+        }
+      });
+      if (!moved) {
+        break;
+      }
+    }
+    pickup.x = body.x;
+    pickup.y = body.y;
+  }
+
   function removeBlade(entity, blade) {
     blade.removed = true;
     entity.blades = entity.blades.filter((item) => !item.removed);
@@ -525,22 +501,8 @@
         continue;
       }
       const type = pick(["tree", "sakura", "stump", "crystal", "lantern", "ruin"], cx * 17 + i, cy * 13 + i);
-      const radius = type === "stump" ? 18 : type === "lantern" ? 16 : type === "crystal" ? 22 : type === "ruin" ? 24 : 28;
-      chunk.obstacles.push({ x: ox, y: oy, radius, type });
-    }
-
-    const decorCount = 34 + Math.floor(hash2(cx * 11, cy * 19) * 30);
-    for (let i = 0; i < decorCount; i += 1) {
-      const dx = baseX + randBetween(cx * 121 + i, cy * 37 + i, 10, CHUNK_SIZE - 10);
-      const dy = baseY + randBetween(cy * 67 + i, cx * 83 + i, 10, CHUNK_SIZE - 10);
-      const type = pick(["grass", "flower", "leaf", "stone", "clover", "mushroom", "petal", "reed"], cx * 59 + i, cy * 71 + i);
-      const decor = {
-        x: dx,
-        y: dy,
-        type,
-        size: randBetween(cx * 43 + i, cy * 101 + i, 4, 9),
-      };
-      chunk.decorations.push(decor);
+      const collider = obstacleCollider(type);
+      chunk.obstacles.push({ x: ox, y: oy, radius: obstacleBroadRadius(collider), type, collider });
     }
 
     const pickupCount = 2 + Math.floor(hash2(cx * 7, cy * 5) * 3);
@@ -633,18 +595,20 @@
   }
 
   function resolveObstacleCollisions(entity) {
+    const body = entityCircle(entity);
     forNearbyObstacles(entity.x, entity.y, 120, (obstacle) => {
       if (Math.abs(obstacle.x - entity.x) > 80 || Math.abs(obstacle.y - entity.y) > 80) {
         return;
       }
-      const dx = entity.x - obstacle.x;
-      const dy = entity.y - obstacle.y;
-      const dist = Math.hypot(dx, dy) || 0.001;
-      const minDist = entity.radius + obstacle.radius;
-      if (dist < minDist) {
-        const push = minDist - dist;
-        entity.x += (dx / dist) * push;
-        entity.y += (dy / dist) * push;
+      const shape = obstacleShape(obstacle);
+      const push = shape.shape === "circle"
+        ? pushCircleOutOfCircle(body, shape)
+        : pushCircleOutOfRect(body, shape);
+      if (push.x || push.y) {
+        entity.x += push.x;
+        entity.y += push.y;
+        body.x += push.x;
+        body.y += push.y;
       }
     });
   }
@@ -653,7 +617,7 @@
     const dx = b.x - a.x;
     const dy = b.y - a.y;
     const dist = Math.hypot(dx, dy) || 0.001;
-    const minDist = a.radius + b.radius + 2;
+    const minDist = (a.hitRadius || a.radius) + (b.hitRadius || b.radius) + 2;
     if (dist >= minDist) {
       return;
     }
@@ -773,6 +737,7 @@
         pickup.vy *= 0.9;
         pickup.settle -= dt;
       }
+      resolvePickupObstacleCollisions(pickup);
       pickup.scale += (1 - pickup.scale) * 0.16;
     }
     for (const entity of entities) {
@@ -791,18 +756,18 @@
 
   function resolveBladeObstacleHits(entity) {
     for (const blade of [...entity.blades]) {
-      const pos = bladePosition(entity, blade);
+      const hitbox = bladeRect(entity, blade);
       let hit = false;
-      forNearbyObstacles(pos.x, pos.y, 100, (obstacle) => {
+      forNearbyObstacles(hitbox.x, hitbox.y, 100, (obstacle) => {
         if (hit) {
           return;
         }
-        if (Math.abs(obstacle.x - pos.x) > 50 || Math.abs(obstacle.y - pos.y) > 50) {
+        if (Math.abs(obstacle.x - hitbox.x) > 50 || Math.abs(obstacle.y - hitbox.y) > 50) {
           return;
         }
-        if (Math.hypot(pos.x - obstacle.x, pos.y - obstacle.y) < obstacle.radius + blade.size * 0.7) {
+        if (shapesIntersect(hitbox, obstacleShape(obstacle))) {
           removeBlade(entity, blade);
-          spawnObstacleShards(pos.x, pos.y);
+          spawnObstacleShards(hitbox.x, hitbox.y);
           hit = true;
         }
       });
@@ -858,9 +823,9 @@
       }
 
       for (const blade of [...player.blades]) {
-        const pos = bladePosition(player, blade);
-        if (Math.hypot(pos.x - enemy.x, pos.y - enemy.y) < enemy.radius + blade.size * 0.6) {
-          spawnSlashTrail(pos.x, pos.y, "player");
+        const hitbox = bladeRect(player, blade);
+        if (shapesIntersect(hitbox, { shape: "circle", ...entityCircle(enemy) })) {
+          spawnSlashTrail(hitbox.x, hitbox.y, "player");
           killEntity(enemy);
           break;
         }
@@ -871,9 +836,9 @@
       }
 
       for (const blade of [...enemy.blades]) {
-        const pos = bladePosition(enemy, blade);
-        if (Math.hypot(pos.x - player.x, pos.y - player.y) < player.radius + blade.size * 0.6) {
-          spawnSlashTrail(pos.x, pos.y, "enemy");
+        const hitbox = bladeRect(enemy, blade);
+        if (shapesIntersect(hitbox, { shape: "circle", ...entityCircle(player) })) {
+          spawnSlashTrail(hitbox.x, hitbox.y, "enemy");
           killEntity(player);
           break;
         }
@@ -981,16 +946,13 @@
         const biome = hash2(Math.floor(gx / 4), Math.floor(gy / 4));
         const spriteKey = biome > 0.68 ? "floorStone" : biome < 0.24 ? "floorGrass" : "floorMeadow";
         const floorSprite = assets[spriteKey];
-        if (floorSprite && floorSprite.loaded) {
+        const floorLoaded = floorSprite && floorSprite.loaded;
+        if (floorLoaded) {
           ctx.drawImage(floorSprite.image, Math.floor(screen.x), Math.floor(screen.y), tile + 1, tile + 1);
         } else {
-          const colors = biome > 0.68
-            ? ["#304152", "#36495a", "#425266", "#4d5f71"]
-            : biome < 0.24
-              ? ["#20403f", "#254a3f", "#2b5545", "#2d5f50"]
-              : ["#233840", "#274042", "#2b4845", "#324f4c"];
-          ctx.fillStyle = colors[Math.floor(noise * colors.length) % colors.length];
+          ctx.fillStyle = "#7a7a7a";
           ctx.fillRect(Math.floor(screen.x), Math.floor(screen.y), tile + 1, tile + 1);
+          continue;
         }
 
         if (biome > 0.7) {
@@ -1019,62 +981,6 @@
     }
   }
 
-  function drawDecoration(decor) {
-    const screen = worldToScreen(decor.x, decor.y);
-    if (screen.x < -20 || screen.x > viewWidth + 20 || screen.y < -20 || screen.y > viewHeight + 20) {
-      return;
-    }
-
-    if (decor.type === "grass") {
-      ctx.fillStyle = "#7de29e";
-      ctx.fillRect(screen.x, screen.y - decor.size, 2, decor.size);
-      ctx.fillRect(screen.x + 3, screen.y - decor.size - 2, 2, decor.size + 2);
-      ctx.fillRect(screen.x + 6, screen.y - decor.size + 1, 2, decor.size - 1);
-    } else if (decor.type === "flower") {
-      ctx.fillStyle = "#89f79d";
-      ctx.fillRect(screen.x + 2, screen.y - decor.size + 2, 2, decor.size);
-      ctx.fillStyle = "#ff8dc8";
-      ctx.fillRect(screen.x, screen.y - decor.size, 3, 3);
-      ctx.fillRect(screen.x + 3, screen.y - decor.size - 2, 3, 3);
-      ctx.fillRect(screen.x + 5, screen.y - decor.size, 3, 3);
-    } else if (decor.type === "leaf") {
-      ctx.fillStyle = "#6cd7b0";
-      ctx.fillRect(screen.x - 1, screen.y - 1, decor.size, 4);
-      ctx.fillStyle = "#b7f5a5";
-      ctx.fillRect(screen.x + 2, screen.y + 1, decor.size - 4, 2);
-    } else if (decor.type === "clover") {
-      ctx.fillStyle = "#9af27a";
-      ctx.fillRect(screen.x, screen.y, 3, 3);
-      ctx.fillRect(screen.x + 4, screen.y, 3, 3);
-      ctx.fillRect(screen.x + 2, screen.y - 3, 3, 3);
-      ctx.fillRect(screen.x + 2, screen.y + 3, 3, 3);
-    } else if (decor.type === "mushroom") {
-      ctx.fillStyle = "#e7decc";
-      ctx.fillRect(screen.x + 2, screen.y - 2, 3, 6);
-      ctx.fillStyle = "#ff8eb2";
-      ctx.fillRect(screen.x, screen.y - 5, 7, 4);
-      ctx.fillStyle = "#fff5f8";
-      ctx.fillRect(screen.x + 1, screen.y - 4, 1, 1);
-      ctx.fillRect(screen.x + 4, screen.y - 3, 1, 1);
-    } else if (decor.type === "petal") {
-      ctx.fillStyle = "#ffc5e8";
-      ctx.fillRect(screen.x, screen.y, 4, 2);
-      ctx.fillRect(screen.x + 2, screen.y - 1, 2, 4);
-    } else if (decor.type === "reed") {
-      ctx.fillStyle = "#8cdc90";
-      ctx.fillRect(screen.x, screen.y - decor.size, 1, decor.size + 1);
-      ctx.fillRect(screen.x + 3, screen.y - decor.size - 1, 1, decor.size + 2);
-      ctx.fillStyle = "#d2bd75";
-      ctx.fillRect(screen.x + 1, screen.y - decor.size + 2, 2, 3);
-      ctx.fillRect(screen.x + 4, screen.y - decor.size, 2, 3);
-    } else {
-      ctx.fillStyle = "#8da0ad";
-      ctx.fillRect(screen.x, screen.y, decor.size, decor.size - 2);
-      ctx.fillStyle = "rgba(255,255,255,0.2)";
-      ctx.fillRect(screen.x + 1, screen.y + 1, decor.size - 3, 2);
-    }
-  }
-
   function drawObstacle(obstacle) {
     const screen = worldToScreen(obstacle.x, obstacle.y);
     if (screen.x < -80 || screen.x > viewWidth + 80 || screen.y < -80 || screen.y > viewHeight + 80) {
@@ -1094,77 +1000,7 @@
               : obstacle.type === "ruin"
                 ? "ruin"
                 : null;
-    if (spriteKey && drawSpriteKey(spriteKey, screen.x, screen.y, 1)) {
-      return;
-    }
-
-    if (obstacle.type === "tree") {
-      ctx.fillStyle = "rgba(0,0,0,0.18)";
-      ctx.beginPath();
-      ctx.ellipse(screen.x, screen.y + 25, 30, 10, 0, 0, PI2);
-      ctx.fill();
-      ctx.fillStyle = "#6c4a32";
-      ctx.fillRect(screen.x - 8, screen.y + 3, 16, 28);
-      ctx.fillStyle = "#204f34";
-      ctx.fillRect(screen.x - 20, screen.y - 31, 40, 13);
-      ctx.fillRect(screen.x - 30, screen.y - 12, 60, 14);
-      ctx.fillStyle = "#2b8d58";
-      ctx.fillRect(screen.x - 28, screen.y - 27, 56, 16);
-      ctx.fillRect(screen.x - 34, screen.y - 5, 68, 16);
-      ctx.fillStyle = "#59cb81";
-      ctx.fillRect(screen.x - 14, screen.y - 20, 26, 5);
-      ctx.fillRect(screen.x + 4, screen.y - 1, 18, 4);
-    } else if (obstacle.type === "sakura") {
-      ctx.fillStyle = "rgba(0,0,0,0.16)";
-      ctx.beginPath();
-      ctx.ellipse(screen.x, screen.y + 24, 28, 9, 0, 0, PI2);
-      ctx.fill();
-      ctx.fillStyle = "#6f4c3a";
-      ctx.fillRect(screen.x - 7, screen.y + 4, 14, 23);
-      ctx.fillStyle = "#ffd5ef";
-      ctx.fillRect(screen.x - 24, screen.y - 26, 48, 14);
-      ctx.fillRect(screen.x - 31, screen.y - 10, 62, 14);
-      ctx.fillStyle = "#ff9fd3";
-      ctx.fillRect(screen.x - 28, screen.y - 20, 56, 13);
-      ctx.fillRect(screen.x - 22, screen.y - 4, 44, 12);
-      ctx.fillStyle = "#fff0f7";
-      ctx.fillRect(screen.x - 10, screen.y - 18, 16, 3);
-    } else if (obstacle.type === "stump") {
-      ctx.fillStyle = "rgba(0,0,0,0.14)";
-      ctx.beginPath();
-      ctx.ellipse(screen.x, screen.y + 10, 22, 7, 0, 0, PI2);
-      ctx.fill();
-      ctx.fillStyle = "#7b573d";
-      ctx.fillRect(screen.x - 18, screen.y - 8, 36, 18);
-      ctx.fillStyle = "#cba77e";
-      ctx.fillRect(screen.x - 11, screen.y - 3, 22, 8);
-    } else if (obstacle.type === "crystal") {
-      ctx.fillStyle = "rgba(68, 169, 255, 0.20)";
-      ctx.fillRect(screen.x - 18, screen.y - 18, 36, 36);
-      ctx.fillStyle = "#486ae5";
-      ctx.fillRect(screen.x - 12, screen.y - 24, 24, 42);
-      ctx.fillStyle = "#8deeff";
-      ctx.fillRect(screen.x - 5, screen.y - 18, 10, 30);
-    } else if (obstacle.type === "ruin") {
-      ctx.fillStyle = "rgba(0,0,0,0.16)";
-      ctx.beginPath();
-      ctx.ellipse(screen.x, screen.y + 14, 24, 8, 0, 0, PI2);
-      ctx.fill();
-      ctx.fillStyle = "#7a858d";
-      ctx.fillRect(screen.x - 18, screen.y - 14, 12, 30);
-      ctx.fillRect(screen.x + 6, screen.y - 10, 12, 26);
-      ctx.fillRect(screen.x - 20, screen.y + 4, 40, 8);
-      ctx.fillStyle = "#b5c0c7";
-      ctx.fillRect(screen.x - 14, screen.y - 10, 4, 10);
-      ctx.fillRect(screen.x + 9, screen.y - 6, 4, 9);
-    } else {
-      ctx.fillStyle = "rgba(255, 210, 123, 0.12)";
-      ctx.fillRect(screen.x - 22, screen.y - 20, 44, 40);
-      ctx.fillStyle = "#4f5966";
-      ctx.fillRect(screen.x - 10, screen.y - 10, 20, 30);
-      ctx.fillStyle = "#ffe586";
-      ctx.fillRect(screen.x - 4, screen.y - 4, 8, 8);
-    }
+    drawSpriteKey(spriteKey, screen.x, screen.y, 1);
   }
 
   function drawPickup(pickup) {
@@ -1181,10 +1017,7 @@
     ctx.beginPath();
     ctx.arc(screen.x, screen.y, 14 + Math.sin(time * 4 + pickup.bob) * 2, 0, PI2);
     ctx.stroke();
-    if (drawSpriteKey("dagger", screen.x, screen.y, pickup.scale * 0.92, 0)) {
-      return;
-    }
-    drawBladeSprite(screen.x, screen.y, 0, "#8beaff", "#f8ffff", 1.35);
+    drawSpriteKey("dagger", screen.x, screen.y, pickup.scale * 0.92, 0);
   }
 
   function drawSpriteKey(key, x, y, scaleMultiplier, rotation, options) {
@@ -1213,29 +1046,8 @@
     return true;
   }
 
-  function fillCircle(x, y, radius, color) {
-    ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(x, y, radius, 0, PI2);
-    ctx.fill();
-  }
-
-  function directionStyle(direction8) {
-    if (direction8 === 4) {
-      return { auraRadius: 15, offsetY: -4 };
-    }
-    if (direction8 === 0) {
-      return { auraRadius: 19, offsetY: 2 };
-    }
-    if (direction8 === 2 || direction8 === 6) {
-      return { auraRadius: 16, offsetY: 0 };
-    }
-    return { auraRadius: 17, offsetY: -1 };
-  }
-
   function drawCharacter(entity) {
     const screen = worldToScreen(entity.x, entity.y);
-    const visual = entity.visual;
     const speed = Math.hypot(entity.vx, entity.vy);
     const moveBlend = Math.min(1, speed / Math.max(entity.speed, 1));
     const gait = time * (7 + moveBlend * 7) + entity.seed * 0.03;
@@ -1243,100 +1055,16 @@
     const bob = Math.abs(Math.sin(gait * 0.5)) * (1.2 + moveBlend * 2.5);
     const lean = Math.max(-0.18, Math.min(0.18, entity.vx / Math.max(entity.speed, 1) * 0.12));
     const squash = 1 + Math.sin(gait) * 0.015 + moveBlend * 0.02;
-    const style = directionStyle(entity.direction8);
 
-    ctx.fillStyle = visual.shadow;
+    ctx.fillStyle = entity.team === "player" ? "rgba(96, 170, 255, 0.24)" : "rgba(255, 137, 191, 0.20)";
     ctx.beginPath();
     ctx.ellipse(screen.x, screen.y + 18, (entity.radius + 10) * CAMERA_PULLBACK, 7 * CAMERA_PULLBACK, 0, 0, PI2);
     ctx.fill();
 
-    if (drawSpriteKey(entity.assetSheet, screen.x, screen.y + 4 - bob, (entity.team === "player" ? 1.04 : 0.98) * squash, lean * 0.6 + sway * 0.004, {
+    drawSpriteKey(entity.assetSheet, screen.x, screen.y + 4 - bob, (entity.team === "player" ? 1.04 : 0.98) * squash, lean * 0.6 + sway * 0.004, {
       frameIndex: entity.direction8,
-      offsetY: style.offsetY,
-    })) {
-      if (visual.tint) {
-        ctx.fillStyle = visual.tint;
-        ctx.beginPath();
-        ctx.arc(screen.x, screen.y - 4 - bob * 0.35, style.auraRadius * CAMERA_PULLBACK, 0, PI2);
-        ctx.fill();
-      }
-      return;
-    }
-
-    fillCircle(screen.x, screen.y - 2, 24, visual.aura);
-
-    ctx.fillStyle = visual.outline;
-    ctx.fillRect(screen.x - 7, screen.y + 3, 14, 16);
-    ctx.fillRect(screen.x - 5, screen.y + 17, 4, 8);
-    ctx.fillRect(screen.x + 1, screen.y + 17, 4, 8);
-
-    ctx.fillStyle = visual.scarf;
-    ctx.fillRect(screen.x + entity.facing * 2, screen.y + 4, 8 * entity.facing, 4);
-    ctx.fillRect(screen.x + entity.facing * 6, screen.y + 8 + sway, 6 * entity.facing, 3);
-
-    ctx.fillStyle = visual.outfitDark;
-    ctx.fillRect(screen.x - 6, screen.y + 2, 12, 14);
-    ctx.fillStyle = visual.outfit;
-    ctx.fillRect(screen.x - 4, screen.y + 4, 8, 10);
-    ctx.fillStyle = visual.accent;
-    ctx.fillRect(screen.x - 1, screen.y + 5, 2, 10);
-    ctx.fillRect(screen.x - 6, screen.y + 11, 12, 2);
-
-    ctx.fillStyle = visual.accentDark;
-    ctx.fillRect(screen.x - 8, screen.y + 6, 3, 8);
-    ctx.fillRect(screen.x + 5, screen.y + 6, 3, 8);
-    ctx.fillRect(screen.x - 6, screen.y + 18, 4, 6);
-    ctx.fillRect(screen.x + 2, screen.y + 18, 4, 6);
-
-    fillCircle(screen.x, screen.y - 3, 11, visual.outline);
-    fillCircle(screen.x, screen.y - 4, 9, visual.skin);
-
-    ctx.fillStyle = visual.hairDark;
-    ctx.fillRect(screen.x - 11, screen.y - 12, 22, 9);
-    ctx.fillRect(screen.x - 10, screen.y - 3, 5, 8);
-    ctx.fillRect(screen.x + 5, screen.y - 3, 5, 8);
-    ctx.fillStyle = visual.hair;
-    ctx.fillRect(screen.x - 8, screen.y - 12, 16, 7);
-    ctx.fillRect(screen.x - 7, screen.y - 4, 4, 6);
-    ctx.fillRect(screen.x + 3, screen.y - 4, 4, 6);
-
-    ctx.fillStyle = visual.accent;
-    ctx.fillRect(screen.x - 10, screen.y - 8, 4, 4);
-    ctx.fillRect(screen.x + 6, screen.y - 8, 4, 4);
-
-    ctx.fillStyle = entity.alive ? "#1f2940" : "#742946";
-    ctx.fillRect(screen.x + entity.facing * 1 - 3, screen.y - 5, 2, 2);
-    ctx.fillRect(screen.x + entity.facing * 1 + 1, screen.y - 5, 2, 2);
-    ctx.fillStyle = "#f996b6";
-    ctx.fillRect(screen.x - 1, screen.y - 1, 2, 1);
-
-    if (Math.sin(entity.blink) > 0.96) {
-      ctx.fillStyle = "#ffffff";
-      ctx.fillRect(screen.x + entity.facing * 2, screen.y - 7, 1, 1);
-    }
-  }
-
-  function drawBladeSprite(x, y, angle, accent, edge, scale) {
-    ctx.save();
-    ctx.translate(x, y);
-    ctx.rotate(angle);
-    ctx.scale(scale, scale);
-    ctx.fillStyle = "rgba(255,255,255,0.10)";
-    ctx.fillRect(-3, -14, 6, 26);
-    ctx.fillStyle = accent;
-    ctx.fillRect(-6, -4, 12, 3);
-    ctx.fillRect(-3, 2, 6, 4);
-    ctx.fillStyle = accent;
-    ctx.fillRect(-1, -11, 2, 19);
-    ctx.fillStyle = edge;
-    ctx.fillRect(-4, -15, 8, 12);
-    ctx.fillStyle = "#d6f6ff";
-    ctx.fillRect(-1, -13, 2, 8);
-    ctx.fillStyle = "#344560";
-    ctx.fillRect(-5, -2, 10, 3);
-    ctx.fillStyle = "#ffe57d";
-    ctx.fillRect(-3, 1, 6, 4);
-    ctx.restore();
+      offsetY: entity.direction8 === 4 ? -4 : entity.direction8 === 0 ? 2 : 0,
+    });
   }
 
   function drawBlades(entity) {
@@ -1350,10 +1078,56 @@
       ctx.beginPath();
       ctx.arc(screen.x, screen.y, 6 + blade.size * 0.3, tangent - 0.8, tangent + 0.8);
       ctx.stroke();
-      if (drawSpriteKey("dagger", screen.x, screen.y, blade.size / 10, tangent)) {
+      drawSpriteKey("dagger", screen.x, screen.y, blade.size / 10, tangent);
+    }
+  }
+
+  function drawDebugShape(shape, fill, stroke) {
+    ctx.save();
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = fill;
+    ctx.strokeStyle = stroke;
+    ctx.lineWidth = 2;
+    if (shape.shape === "circle") {
+      const screen = worldToScreen(shape.x, shape.y);
+      ctx.beginPath();
+      ctx.arc(screen.x, screen.y, shape.radius * CAMERA_PULLBACK, 0, PI2);
+      ctx.fill();
+      ctx.stroke();
+    } else {
+      const screen = worldToScreen(shape.x, shape.y);
+      ctx.translate(screen.x, screen.y);
+      ctx.rotate(shape.rotation || 0);
+      ctx.fillRect(-shape.width * 0.5 * CAMERA_PULLBACK, -shape.height * 0.5 * CAMERA_PULLBACK, shape.width * CAMERA_PULLBACK, shape.height * CAMERA_PULLBACK);
+      ctx.strokeRect(-shape.width * 0.5 * CAMERA_PULLBACK, -shape.height * 0.5 * CAMERA_PULLBACK, shape.width * CAMERA_PULLBACK, shape.height * CAMERA_PULLBACK);
+    }
+    ctx.restore();
+  }
+
+  function drawHitboxes() {
+    for (const chunk of getActiveChunks(state.player.x, state.player.y, ACTIVE_RADIUS)) {
+      for (const obstacle of chunk.obstacles) {
+        drawDebugShape(obstacleShape(obstacle), "rgba(82, 255, 164, 0.34)", "rgba(214, 255, 231, 0.95)");
+      }
+    }
+
+    drawDebugShape({ shape: "circle", ...entityCircle(state.player) }, "rgba(73, 182, 255, 0.34)", "rgba(220, 245, 255, 0.95)");
+    for (const enemy of state.enemies) {
+      if (enemy.alive) {
+        drawDebugShape({ shape: "circle", ...entityCircle(enemy) }, "rgba(255, 110, 176, 0.34)", "rgba(255, 226, 237, 0.95)");
+      }
+    }
+
+    for (const blade of state.player.blades) {
+      drawDebugShape(bladeRect(state.player, blade), "rgba(93, 238, 255, 0.32)", "rgba(225, 251, 255, 0.95)");
+    }
+    for (const enemy of state.enemies) {
+      if (!enemy.alive) {
         continue;
       }
-      drawBladeSprite(screen.x, screen.y, tangent, accent, "#fefefe", blade.size / 8);
+      for (const blade of enemy.blades) {
+        drawDebugShape(bladeRect(enemy, blade), "rgba(255, 136, 191, 0.32)", "rgba(255, 229, 239, 0.95)");
+      }
     }
   }
 
@@ -1398,9 +1172,6 @@
     renderGround();
 
     for (const chunk of getActiveChunks(state.player.x, state.player.y, ACTIVE_RADIUS)) {
-      for (const decor of chunk.decorations) {
-        drawDecoration(decor);
-      }
       for (const obstacle of chunk.obstacles) {
         drawObstacle(obstacle);
       }
@@ -1423,6 +1194,10 @@
       if (enemy.alive) {
         drawCharacter(enemy);
       }
+    }
+
+    if (SHOW_HITBOX) {
+      drawHitboxes();
     }
 
     drawJoystick();
