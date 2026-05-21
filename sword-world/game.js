@@ -144,7 +144,7 @@
     maxPickupBladeCount: 5,
     pickupBladeChances: [0.2, 0.2, 0.2, 0.2, 0.2],
     tierSpinSpeeds: [1.55, 2.45, 3.2],
-    tierSpinVariances: [0.95, 0.45, 0.18],
+    tierSpinVariances: [0.95, 0.45, 0],
     tierSpawnRates: [0.7, 0.22, 0.08],
     showHitbox: false,
     showHelp: false,
@@ -528,12 +528,20 @@
     return Math.max(0, Math.min(1, value));
   }
 
-  function parseSpeedText(text, fallback) {
+  function parseBaseSpinText(text, fallback) {
     const value = Number.parseFloat(text);
     if (!Number.isFinite(value)) {
       return fallback;
     }
-    return Math.max(0.2, Math.min(12, value));
+    return Math.max(1, Math.min(10, value));
+  }
+
+  function parseSpinVarianceText(text, fallback) {
+    const value = Number.parseFloat(text);
+    if (!Number.isFinite(value)) {
+      return fallback;
+    }
+    return Math.max(0, Math.min(10, value));
   }
 
   function syncSettingsInputs() {
@@ -605,17 +613,17 @@
       const speedInput = document.createElement("input");
       speedInput.id = "tierSpeedInput" + tier.id;
       speedInput.type = "number";
-      speedInput.min = "0.2";
-      speedInput.max = "12";
+      speedInput.min = "1";
+      speedInput.max = "10";
       speedInput.step = "0.05";
       speedInput.inputMode = "decimal";
       speedInput.value = draftSettings.tierSpinSpeedTexts[i] ?? String(draftSettings.tierSpinSpeeds[i]);
       speedInput.addEventListener("input", () => {
         draftSettings.tierSpinSpeedTexts[i] = speedInput.value;
-        draftSettings.tierSpinSpeeds[i] = parseSpeedText(speedInput.value, settings.tierSpinSpeeds[i]);
+        draftSettings.tierSpinSpeeds[i] = parseBaseSpinText(speedInput.value, settings.tierSpinSpeeds[i]);
       });
       speedInput.addEventListener("change", () => {
-        const nextValue = parseSpeedText(speedInput.value, settings.tierSpinSpeeds[i]);
+        const nextValue = parseBaseSpinText(speedInput.value, settings.tierSpinSpeeds[i]);
         draftSettings.tierSpinSpeeds[i] = nextValue;
         draftSettings.tierSpinSpeedTexts[i] = String(Number(nextValue.toFixed(2)));
         speedInput.value = draftSettings.tierSpinSpeedTexts[i];
@@ -632,16 +640,16 @@
       varianceInput.id = "tierVarianceInput" + tier.id;
       varianceInput.type = "number";
       varianceInput.min = "0";
-      varianceInput.max = "3";
+      varianceInput.max = "10";
       varianceInput.step = "0.05";
       varianceInput.inputMode = "decimal";
       varianceInput.value = draftSettings.tierSpinVarianceTexts[i] ?? String(draftSettings.tierSpinVariances[i]);
       varianceInput.addEventListener("input", () => {
         draftSettings.tierSpinVarianceTexts[i] = varianceInput.value;
-        draftSettings.tierSpinVariances[i] = parseSpeedText(varianceInput.value, settings.tierSpinVariances[i]);
+        draftSettings.tierSpinVariances[i] = parseSpinVarianceText(varianceInput.value, settings.tierSpinVariances[i]);
       });
       varianceInput.addEventListener("change", () => {
-        const nextValue = parseSpeedText(varianceInput.value, settings.tierSpinVariances[i]);
+        const nextValue = parseSpinVarianceText(varianceInput.value, settings.tierSpinVariances[i]);
         draftSettings.tierSpinVariances[i] = nextValue;
         draftSettings.tierSpinVarianceTexts[i] = String(Number(nextValue.toFixed(2)));
         varianceInput.value = draftSettings.tierSpinVarianceTexts[i];
@@ -801,8 +809,8 @@
     settings.enemyDropChances = draftSettings.enemyDropChances.slice(0, draftSettings.maxEnemyDropBlades);
     settings.maxPickupBladeCount = draftSettings.maxPickupBladeCount;
     settings.pickupBladeChances = draftSettings.pickupBladeChances.slice(0, draftSettings.maxPickupBladeCount);
-    settings.tierSpinSpeeds = draftSettings.tierSpinSpeeds.map((value) => Number(parseSpeedText(String(value), 2.5).toFixed(2)));
-    settings.tierSpinVariances = draftSettings.tierSpinVariances.map((value) => Number(parseSpeedText(String(value), 0).toFixed(2)));
+    settings.tierSpinSpeeds = draftSettings.tierSpinSpeeds.map((value) => Number(parseBaseSpinText(String(value), 2.5).toFixed(2)));
+    settings.tierSpinVariances = draftSettings.tierSpinVariances.map((value) => Number(parseSpinVarianceText(String(value), 0).toFixed(2)));
     settings.tierSpawnRates = draftSettings.tierSpawnRates.map((value) => Number(parseChanceText(String(value)).toFixed(2)));
     settings.showHitbox = draftSettings.showHitbox;
     settings.showHelp = draftSettings.showHelp;

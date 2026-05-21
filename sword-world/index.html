@@ -26,7 +26,7 @@
           <div class="settings-group">
             <div class="settings-group-title">基础规则</div>
             <div class="settings-row">
-              <label for="maxBladesInput">最大持剑数</label>
+              <label for="maxBladesInput">最大持剑数（1-32）</label>
               <input id="maxBladesInput" type="number" min="1" max="32" step="1" value="15">
             </div>
             <label class="settings-check" for="keepBladeOnKillInput">
@@ -38,7 +38,7 @@
           <div class="settings-group">
             <div class="settings-group-title">敌人掉落</div>
             <div class="settings-row">
-              <label for="maxEnemyDropInput">最多爆出几把剑</label>
+              <label for="maxEnemyDropInput">最多爆出几把剑（1-5）</label>
               <input id="maxEnemyDropInput" type="number" min="1" max="5" step="1" value="2">
             </div>
             <div class="settings-probabilities">
@@ -51,7 +51,7 @@
           <div class="settings-group">
             <div class="settings-group-title">拾取生成</div>
             <div class="settings-row">
-              <label for="pickupBladeCountInput">每把掉落剑最多生成几把旋转剑</label>
+              <label for="pickupBladeCountInput">每把掉落剑最多生成几把旋转剑（1-8）</label>
               <input id="pickupBladeCountInput" type="number" min="1" max="8" step="1" value="5">
             </div>
             <div class="settings-probabilities">
@@ -65,15 +65,15 @@
             <div class="settings-group-title">剑等级</div>
             <div class="settings-tier-sections">
               <div class="settings-probabilities">
-                <span class="settings-label">三级剑转速</span>
+                <span class="settings-label">三级剑转速（1-10）</span>
                 <div id="tierSpeedList" class="settings-probability-list"></div>
               </div>
               <div class="settings-probabilities">
-                <span class="settings-label">三级剑转速偏移</span>
+                <span class="settings-label">三级剑转速偏移（0-10，实际随机系数为 -1 到 1）</span>
                 <div id="tierVarianceList" class="settings-probability-list"></div>
               </div>
               <div class="settings-probabilities">
-                <span class="settings-label">三级剑爆率权重（自动归一化）</span>
+                <span class="settings-label">三级剑爆率权重（0-1，自动归一化）</span>
                 <div id="tierRateList" class="settings-probability-list"></div>
               </div>
             </div>
