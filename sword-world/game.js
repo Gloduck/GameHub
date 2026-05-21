@@ -814,7 +814,7 @@
   function redistributeBlades(entity) {
     const total = entity.blades.length;
     entity.blades.forEach((blade, index) => {
-      blade.angle = (PI2 * index) / Math.max(total, 1) + index * 0.04;
+      blade.angle = (PI2 * index) / Math.max(total, 1);
     });
   }
 
