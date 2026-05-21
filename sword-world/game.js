@@ -40,6 +40,7 @@
   const CAMERA_PULLBACK = 0.88;
   const PI2 = Math.PI * 2;
   const WORLD_SEED = 71237;
+  const PLAYER_DEATH_OVERLAY_DELAY = 0.55;
 
   const keys = new Set();
   const chunks = new Map();
@@ -121,6 +122,7 @@
   const state = {
     running: false,
     settingsOpen: false,
+    playerDeathDelay: 0,
     player: null,
     enemies: [],
     score: 0,
@@ -315,6 +317,7 @@
   function restartGame() {
     state.running = true;
     state.settingsOpen = false;
+    state.playerDeathDelay = 0;
     state.player = createPlayer();
     state.enemies = [];
     state.score = 0;
@@ -1308,9 +1311,16 @@
       }
     } else {
       state.running = false;
+      state.playerDeathDelay = PLAYER_DEATH_OVERLAY_DELAY;
       restartButton.textContent = "重新开始";
-      overlay.classList.remove("hidden");
     }
+  }
+
+  function finishPlayerDeath() {
+    if (state.playerDeathDelay > 0) {
+      return;
+    }
+    overlay.classList.remove("hidden");
   }
 
   function resolveBladeCombat() {
@@ -1393,7 +1403,16 @@
   }
 
   function update(dt) {
-    if (!state.running || state.settingsOpen) {
+    if (state.settingsOpen) {
+      return;
+    }
+
+    if (!state.running) {
+      if (state.playerDeathDelay > 0) {
+        state.playerDeathDelay = Math.max(0, state.playerDeathDelay - dt);
+        updateEffects(dt);
+        finishPlayerDeath();
+      }
       return;
     }
     time += dt;
@@ -1778,7 +1797,7 @@
 
   window.addEventListener("keydown", (event) => {
     if (event.key === "r" || event.key === "R") {
-      if (!state.running) {
+      if (!state.running && state.playerDeathDelay <= 0) {
         restartGame();
       }
     }
@@ -1801,7 +1820,7 @@
     joystick.x = 0;
     joystick.y = 0;
     setJoystickFromTouch(touch);
-    if (!state.running) {
+    if (!state.running && state.playerDeathDelay <= 0) {
       restartGame();
     }
   }, { passive: true });
