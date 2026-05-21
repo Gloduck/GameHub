@@ -13,6 +13,9 @@
   const maxEnemyDropInput = document.getElementById("maxEnemyDropInput");
   const showHitboxInput = document.getElementById("showHitboxInput");
   const showHelpInput = document.getElementById("showHelpInput");
+  const tierSpeedList = document.getElementById("tierSpeedList");
+  const tierVarianceList = document.getElementById("tierVarianceList");
+  const tierRateList = document.getElementById("tierRateList");
   const dropChanceList = document.getElementById("dropChanceList");
   const dropChanceSummary = document.getElementById("dropChanceSummary");
   const settingsCancel = document.getElementById("settingsCancel");
@@ -47,7 +50,9 @@
     enemyTealSheet: { path: "assets/enemy-teal-sheet.png", scale: 0.195, anchorY: 0.74, frameWidth: 256, frameHeight: 256, frames: 8 },
     enemyGoldSheet: { path: "assets/enemy-gold-sheet.png", scale: 0.195, anchorY: 0.74, frameWidth: 256, frameHeight: 256, frames: 8 },
     enemyMintSheet: { path: "assets/enemy-mint-sheet.png", scale: 0.195, anchorY: 0.74, frameWidth: 256, frameHeight: 256, frames: 8 },
-    dagger: { path: "assets/dagger.png", scale: 0.08, anchorY: 0.55 },
+    swordCommon: { path: "assets/sword-common.png", scale: 0.08, anchorY: 0.55 },
+    swordRare: { path: "assets/sword-rare.png", scale: 0.08, anchorY: 0.55 },
+    swordLegendary: { path: "assets/sword-legendary.png", scale: 0.08, anchorY: 0.55 },
     tree: { path: "assets/tree.png", scale: 0.175, anchorY: 0.72 },
     sakura: { path: "assets/sakura.png", scale: 0.175, anchorY: 0.72 },
     crystal: { path: "assets/crystal.png", scale: 0.145, anchorY: 0.7 },
@@ -58,6 +63,41 @@
     floorStone: { path: "assets/floor-stone.png", scale: 1, anchorY: 0.5 },
     floorMeadow: { path: "assets/floor-meadow.png", scale: 1, anchorY: 0.5 },
   };
+  const SWORD_TIERS = [
+    {
+      id: 1,
+      label: "1 级 朴素",
+      assetKey: "swordCommon",
+      sizeScale: 0.92,
+      trail: "rgba(178, 212, 255, 0.18)",
+      pickupFill: "rgba(148, 196, 255, 0.16)",
+      pickupStroke: "rgba(201, 224, 255, 0.42)",
+      burstPlayer: "#b9dcff",
+      burstEnemy: "#ffdbe7",
+    },
+    {
+      id: 2,
+      label: "2 级 精良",
+      assetKey: "swordRare",
+      sizeScale: 1.02,
+      trail: "rgba(104, 222, 255, 0.20)",
+      pickupFill: "rgba(92, 223, 255, 0.18)",
+      pickupStroke: "rgba(176, 245, 255, 0.46)",
+      burstPlayer: "#8be9ff",
+      burstEnemy: "#ffe0f5",
+    },
+    {
+      id: 3,
+      label: "3 级 传说",
+      assetKey: "swordLegendary",
+      sizeScale: 1.14,
+      trail: "rgba(140, 255, 248, 0.22)",
+      pickupFill: "rgba(124, 255, 244, 0.18)",
+      pickupStroke: "rgba(216, 255, 252, 0.52)",
+      burstPlayer: "#b8fff7",
+      burstEnemy: "#ffeaff",
+    },
+  ];
   const joystick = {
     active: false,
     identifier: null,
@@ -86,6 +126,9 @@
     maxBlades: 15,
     maxEnemyDropBlades: 2,
     enemyDropChances: [0.4, 0.1],
+    tierSpinSpeeds: [1.55, 2.45, 3.2],
+    tierSpinVariances: [0.95, 0.45, 0.18],
+    tierSpawnRates: [0.7, 0.22, 0.08],
     showHitbox: false,
     showHelp: false,
   };
@@ -94,6 +137,12 @@
     maxEnemyDropBlades: settings.maxEnemyDropBlades,
     enemyDropChances: [...settings.enemyDropChances],
     enemyDropChanceTexts: settings.enemyDropChances.map((value) => String(value)),
+    tierSpinSpeeds: [...settings.tierSpinSpeeds],
+    tierSpinSpeedTexts: settings.tierSpinSpeeds.map((value) => String(value)),
+    tierSpinVariances: [...settings.tierSpinVariances],
+    tierSpinVarianceTexts: settings.tierSpinVariances.map((value) => String(value)),
+    tierSpawnRates: [...settings.tierSpawnRates],
+    tierSpawnRateTexts: settings.tierSpawnRates.map((value) => String(value)),
     showHitbox: settings.showHitbox,
     showHelp: settings.showHelp,
   };
@@ -161,13 +210,45 @@
     return array[Math.floor(hash2(seedA, seedB) * array.length) % array.length];
   }
 
-  function createBlade(owner, angleOffset) {
+  function swordTierById(tierId) {
+    return SWORD_TIERS.find((tier) => tier.id === tierId) || SWORD_TIERS[0];
+  }
+
+  function normalizedTierSpawnRates() {
+    const rates = settings.tierSpawnRates.map((value) => Math.max(0, value || 0));
+    const total = rates.reduce((sum, value) => sum + value, 0);
+    if (total <= 0) {
+      return [1, 0, 0];
+    }
+    return rates.map((value) => value / total);
+  }
+
+  function sampleSwordTier(seedA, seedB) {
+    const rates = normalizedTierSpawnRates();
+    const roll = hash2(seedA, seedB);
+    let acc = 0;
+    for (let i = 0; i < rates.length; i += 1) {
+      acc += rates[i];
+      if (roll <= acc || i === rates.length - 1) {
+        return SWORD_TIERS[i].id;
+      }
+    }
+    return 1;
+  }
+
+  function createBlade(owner, angleOffset, tierId) {
+    const tier = swordTierById(tierId);
+    const baseSpin = settings.tierSpinSpeeds[tier.id - 1] ?? BLADE_SPIN;
+    const spinOffsetFactor = randBetween(owner.seed + angleOffset * 77, 22, -1, 1);
+    const spinVariance = settings.tierSpinVariances[tier.id - 1] ?? 0;
     return {
       owner,
+      tierId: tier.id,
       angle: angleOffset,
       orbit: BLADE_DISTANCE + randBetween(owner.seed + angleOffset * 99, 77, -4, 8),
-      spin: BLADE_SPIN + randBetween(owner.seed + angleOffset * 77, 22, -0.4, 0.55),
-      size: BLADE_SIZE + randBetween(owner.seed + angleOffset * 45, 88, -1.4, 1.2),
+      spinOffsetFactor,
+      spin: baseSpin + spinOffsetFactor * spinVariance,
+      size: (BLADE_SIZE + randBetween(owner.seed + angleOffset * 45, 88, -1.1, 1.2)) * tier.sizeScale,
       removed: false,
     };
   }
@@ -240,6 +321,7 @@
   function addPickup(x, y, options) {
     const pickup = {
       id: nextPickupId++,
+      tierId: options?.tierId || sampleSwordTier(x, y),
       x,
       y,
       bob: randBetween(x, y, 0, PI2),
@@ -307,7 +389,19 @@
     const limit = settings.maxBlades;
     const target = Math.min(limit, current + count);
     for (let i = current; i < target; i += 1) {
-      entity.blades.push(createBlade(entity, (PI2 * i) / Math.max(target, 1)));
+      const tierId = sampleSwordTier(entity.seed + i * 17, time * 1000 + i * 29);
+      entity.blades.push(createBlade(entity, (PI2 * i) / Math.max(target, 1), tierId));
+    }
+    redistributeBlades(entity);
+  }
+
+  function grantTierBlades(entity, min, max, tierId) {
+    const count = Math.floor(randBetween(entity.seed + time * 100, entity.blades.length + 1, min, max + 1));
+    const current = entity.blades.length;
+    const limit = settings.maxBlades;
+    const target = Math.min(limit, current + count);
+    for (let i = current; i < target; i += 1) {
+      entity.blades.push(createBlade(entity, (PI2 * i) / Math.max(target, 1), tierId));
     }
     redistributeBlades(entity);
   }
@@ -329,11 +423,36 @@
     }
   }
 
+  function refreshBladeSpin(entity) {
+    if (!entity) {
+      return;
+    }
+    for (const blade of entity.blades) {
+      const tier = swordTierById(blade.tierId);
+      const baseSpin = settings.tierSpinSpeeds[tier.id - 1] ?? BLADE_SPIN;
+      const variance = settings.tierSpinVariances[tier.id - 1] ?? 0;
+      blade.spin = baseSpin + (blade.spinOffsetFactor || 0) * variance;
+    }
+  }
+
+  function applyTierSpinSettings() {
+    refreshBladeSpin(state.player);
+    for (const enemy of state.enemies) {
+      refreshBladeSpin(enemy);
+    }
+  }
+
   function cloneSettingsToDraft() {
     draftSettings.maxBlades = settings.maxBlades;
     draftSettings.maxEnemyDropBlades = settings.maxEnemyDropBlades;
     draftSettings.enemyDropChances = [...settings.enemyDropChances];
     draftSettings.enemyDropChanceTexts = settings.enemyDropChances.map((value) => String(value));
+    draftSettings.tierSpinSpeeds = [...settings.tierSpinSpeeds];
+    draftSettings.tierSpinSpeedTexts = settings.tierSpinSpeeds.map((value) => String(value));
+    draftSettings.tierSpinVariances = [...settings.tierSpinVariances];
+    draftSettings.tierSpinVarianceTexts = settings.tierSpinVariances.map((value) => String(value));
+    draftSettings.tierSpawnRates = [...settings.tierSpawnRates];
+    draftSettings.tierSpawnRateTexts = settings.tierSpawnRates.map((value) => String(value));
     draftSettings.showHitbox = settings.showHitbox;
     draftSettings.showHelp = settings.showHelp;
   }
@@ -356,6 +475,14 @@
       return 0;
     }
     return Math.max(0, Math.min(1, value));
+  }
+
+  function parseSpeedText(text, fallback) {
+    const value = Number.parseFloat(text);
+    if (!Number.isFinite(value)) {
+      return fallback;
+    }
+    return Math.max(0.2, Math.min(12, value));
   }
 
   function syncSettingsInputs() {
@@ -409,6 +536,94 @@
     updateDropChanceSummary();
   }
 
+  function renderTierSettingInputs() {
+    tierSpeedList.innerHTML = "";
+    tierVarianceList.innerHTML = "";
+    tierRateList.innerHTML = "";
+
+    for (let i = 0; i < SWORD_TIERS.length; i += 1) {
+      const tier = SWORD_TIERS[i];
+
+      const speedItem = document.createElement("div");
+      speedItem.className = "settings-probability-item";
+      const speedLabel = document.createElement("label");
+      speedLabel.htmlFor = "tierSpeedInput" + tier.id;
+      speedLabel.textContent = tier.label;
+      const speedInput = document.createElement("input");
+      speedInput.id = "tierSpeedInput" + tier.id;
+      speedInput.type = "number";
+      speedInput.min = "0.2";
+      speedInput.max = "12";
+      speedInput.step = "0.05";
+      speedInput.inputMode = "decimal";
+      speedInput.value = draftSettings.tierSpinSpeedTexts[i] ?? String(draftSettings.tierSpinSpeeds[i]);
+      speedInput.addEventListener("input", () => {
+        draftSettings.tierSpinSpeedTexts[i] = speedInput.value;
+        draftSettings.tierSpinSpeeds[i] = parseSpeedText(speedInput.value, settings.tierSpinSpeeds[i]);
+      });
+      speedInput.addEventListener("change", () => {
+        const nextValue = parseSpeedText(speedInput.value, settings.tierSpinSpeeds[i]);
+        draftSettings.tierSpinSpeeds[i] = nextValue;
+        draftSettings.tierSpinSpeedTexts[i] = String(Number(nextValue.toFixed(2)));
+        speedInput.value = draftSettings.tierSpinSpeedTexts[i];
+      });
+      speedItem.append(speedLabel, speedInput);
+      tierSpeedList.append(speedItem);
+
+      const varianceItem = document.createElement("div");
+      varianceItem.className = "settings-probability-item";
+      const varianceLabel = document.createElement("label");
+      varianceLabel.htmlFor = "tierVarianceInput" + tier.id;
+      varianceLabel.textContent = tier.label;
+      const varianceInput = document.createElement("input");
+      varianceInput.id = "tierVarianceInput" + tier.id;
+      varianceInput.type = "number";
+      varianceInput.min = "0";
+      varianceInput.max = "3";
+      varianceInput.step = "0.05";
+      varianceInput.inputMode = "decimal";
+      varianceInput.value = draftSettings.tierSpinVarianceTexts[i] ?? String(draftSettings.tierSpinVariances[i]);
+      varianceInput.addEventListener("input", () => {
+        draftSettings.tierSpinVarianceTexts[i] = varianceInput.value;
+        draftSettings.tierSpinVariances[i] = parseSpeedText(varianceInput.value, settings.tierSpinVariances[i]);
+      });
+      varianceInput.addEventListener("change", () => {
+        const nextValue = parseSpeedText(varianceInput.value, settings.tierSpinVariances[i]);
+        draftSettings.tierSpinVariances[i] = nextValue;
+        draftSettings.tierSpinVarianceTexts[i] = String(Number(nextValue.toFixed(2)));
+        varianceInput.value = draftSettings.tierSpinVarianceTexts[i];
+      });
+      varianceItem.append(varianceLabel, varianceInput);
+      tierVarianceList.append(varianceItem);
+
+      const rateItem = document.createElement("div");
+      rateItem.className = "settings-probability-item";
+      const rateLabel = document.createElement("label");
+      rateLabel.htmlFor = "tierRateInput" + tier.id;
+      rateLabel.textContent = tier.label;
+      const rateInput = document.createElement("input");
+      rateInput.id = "tierRateInput" + tier.id;
+      rateInput.type = "number";
+      rateInput.min = "0";
+      rateInput.max = "1";
+      rateInput.step = "0.01";
+      rateInput.inputMode = "decimal";
+      rateInput.value = draftSettings.tierSpawnRateTexts[i] ?? String(draftSettings.tierSpawnRates[i]);
+      rateInput.addEventListener("input", () => {
+        draftSettings.tierSpawnRateTexts[i] = rateInput.value;
+        draftSettings.tierSpawnRates[i] = parseChanceText(rateInput.value);
+      });
+      rateInput.addEventListener("change", () => {
+        const nextValue = parseChanceText(rateInput.value);
+        draftSettings.tierSpawnRates[i] = nextValue;
+        draftSettings.tierSpawnRateTexts[i] = String(Number(nextValue.toFixed(2)));
+        rateInput.value = draftSettings.tierSpawnRateTexts[i];
+      });
+      rateItem.append(rateLabel, rateInput);
+      tierRateList.append(rateItem);
+    }
+  }
+
   function updateDropChanceSummary() {
     const total = draftSettings.enemyDropChances.reduce((sum, value) => sum + value, 0);
     const clampedTotal = Math.min(1, total);
@@ -419,6 +634,7 @@
   function openSettings() {
     cloneSettingsToDraft();
     syncSettingsInputs();
+    renderTierSettingInputs();
     renderDropChanceInputs();
     state.settingsOpen = true;
     settingsPanel.classList.remove("hidden");
@@ -457,9 +673,13 @@
     settings.maxBlades = draftSettings.maxBlades;
     settings.maxEnemyDropBlades = draftSettings.maxEnemyDropBlades;
     settings.enemyDropChances = draftSettings.enemyDropChances.slice(0, draftSettings.maxEnemyDropBlades);
+    settings.tierSpinSpeeds = draftSettings.tierSpinSpeeds.map((value) => Number(parseSpeedText(String(value), 2.5).toFixed(2)));
+    settings.tierSpinVariances = draftSettings.tierSpinVariances.map((value) => Number(parseSpeedText(String(value), 0).toFixed(2)));
+    settings.tierSpawnRates = draftSettings.tierSpawnRates.map((value) => Number(parseChanceText(String(value)).toFixed(2)));
     settings.showHitbox = draftSettings.showHitbox;
     settings.showHelp = draftSettings.showHelp;
     applyBladeLimit();
+    applyTierSpinSettings();
     syncHelpVisibility();
   }
 
@@ -922,8 +1142,9 @@
         }
         if (Math.hypot(entity.x - pickup.x, entity.y - pickup.y) <= entity.radius + 12) {
           world.pickups.delete(pickup.id);
-          grantRandomBlades(entity, 1, 5);
-          spawnBurst(pickup.x, pickup.y, entity.team === "player" ? "#96f6ff" : "#ffd3e7", 8, 76, 0.32, 4);
+          grantTierBlades(entity, 1, 5, pickup.tierId);
+          const tier = swordTierById(pickup.tierId);
+          spawnBurst(pickup.x, pickup.y, entity.team === "player" ? tier.burstPlayer : tier.burstEnemy, 8, 76, 0.32, 4);
         }
       }
     }
@@ -959,10 +1180,12 @@
       for (let i = 0; i < dropCount; i += 1) {
         const angle = randBetween(entity.x + i, entity.y - i, 0, PI2);
         const distance = randBetween(entity.y + i, entity.x + i, 8, 28);
+        const tierId = sampleSwordTier(entity.x + i * 19, entity.y - i * 23);
         addPickup(
           entity.x + Math.cos(angle) * distance,
           entity.y + Math.sin(angle) * distance,
           {
+            tierId,
             vx: Math.cos(angle) * randBetween(i, entity.x, 36, 72),
             vy: Math.sin(angle) * randBetween(i, entity.y, 36, 72),
             settle: 0.22,
@@ -1200,16 +1423,17 @@
     if (screen.x < -40 || screen.x > viewWidth + 40 || screen.y < -40 || screen.y > viewHeight + 40) {
       return;
     }
-    ctx.fillStyle = "rgba(80, 255, 204, 0.16)";
+    const tier = swordTierById(pickup.tierId);
+    ctx.fillStyle = tier.pickupFill;
     ctx.beginPath();
     ctx.arc(screen.x, screen.y, 22, 0, PI2);
     ctx.fill();
-    ctx.strokeStyle = "rgba(176, 255, 226, 0.42)";
+    ctx.strokeStyle = tier.pickupStroke;
     ctx.lineWidth = 2;
     ctx.beginPath();
     ctx.arc(screen.x, screen.y, 14 + Math.sin(time * 4 + pickup.bob) * 2, 0, PI2);
     ctx.stroke();
-    drawSpriteKey("dagger", screen.x, screen.y, pickup.scale * 0.92, 0);
+    drawSpriteKey(tier.assetKey, screen.x, screen.y, pickup.scale * 0.92, 0);
   }
 
   function drawSpriteKey(key, x, y, scaleMultiplier, rotation, options) {
@@ -1261,16 +1485,16 @@
 
   function drawBlades(entity) {
     for (const blade of entity.blades) {
+      const tier = swordTierById(blade.tierId);
       const pos = bladePosition(entity, blade);
       const screen = worldToScreen(pos.x, pos.y);
       const tangent = blade.angle + Math.PI * 0.5;
-      const accent = entity.team === "player" ? "#7ce7ff" : "#ff8ab8";
-      ctx.strokeStyle = entity.team === "player" ? "rgba(124, 231, 255, 0.18)" : "rgba(255, 138, 184, 0.16)";
+      ctx.strokeStyle = entity.team === "player" ? tier.trail : "rgba(255, 138, 184, 0.16)";
       ctx.lineWidth = 3;
       ctx.beginPath();
       ctx.arc(screen.x, screen.y, 6 + blade.size * 0.3, tangent - 0.8, tangent + 0.8);
       ctx.stroke();
-      drawSpriteKey("dagger", screen.x, screen.y, blade.size / 10, tangent);
+      drawSpriteKey(tier.assetKey, screen.x, screen.y, blade.size / 10, tangent);
     }
   }
 

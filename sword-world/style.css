@@ -39,6 +39,7 @@ body {
 .hud {
   position: absolute;
   inset-inline: 0;
+  z-index: 4;
   display: flex;
   justify-content: space-between;
   gap: 12px;
@@ -103,9 +104,14 @@ body {
 
 .settings-panel {
   position: absolute;
-  top: max(72px, calc(env(safe-area-inset-top) + 72px));
-  right: 14px;
-  z-index: 3;
+  inset: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(12px, env(safe-area-inset-top)) 14px max(28px, calc(env(safe-area-inset-bottom) + 16px));
+  background: rgba(4, 7, 12, 0.48);
+  backdrop-filter: blur(10px);
 }
 
 .settings-panel.hidden {
@@ -113,10 +119,45 @@ body {
 }
 
 .settings-card {
-  min-width: 220px;
+  display: flex;
   flex-direction: column;
-  align-items: stretch;
+  width: min(420px, 100%);
+  min-height: 0;
+  max-height: min(720px, calc(100vh - 32px - env(safe-area-inset-top) - env(safe-area-inset-bottom)));
+  overflow: hidden;
+  padding: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 20px;
+  background: rgba(9, 13, 20, 0.94);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+}
+
+.settings-header {
+  width: 100%;
+  flex: 0 0 auto;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.settings-header strong {
+  font-size: 16px;
+  letter-spacing: 0.04em;
+}
+
+.settings-content {
+  width: 100%;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
   gap: 12px;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-top: 12px;
+  padding-right: 4px;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  -webkit-overflow-scrolling: touch;
 }
 
 .settings-row {
@@ -145,6 +186,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.settings-tier-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
 }
 
 .settings-label {
@@ -195,9 +242,15 @@ body {
 }
 
 .settings-actions {
+  width: 100%;
+  flex: 0 0 auto;
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  background: rgba(9, 13, 20, 0.94);
 }
 
 .settings-button {
@@ -220,6 +273,7 @@ body {
 .overlay {
   position: absolute;
   inset: 0;
+  z-index: 2;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -276,5 +330,31 @@ body {
 
   .controls {
     max-width: 100%;
+  }
+
+  .settings-panel {
+    padding: max(12px, env(safe-area-inset-top)) 12px max(40px, calc(env(safe-area-inset-bottom) + 20px));
+  }
+
+  .settings-card {
+    width: 100%;
+    max-height: calc(100vh - 24px - env(safe-area-inset-top) - max(40px, calc(env(safe-area-inset-bottom) + 20px)));
+    padding: 12px;
+    border-radius: 16px;
+  }
+
+  .settings-row,
+  .settings-probability-item {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .settings-row input,
+  .settings-probability-item input {
+    width: 100%;
+  }
+
+  .settings-actions {
+    position: static;
   }
 }

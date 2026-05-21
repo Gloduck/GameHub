@@ -18,39 +18,58 @@
       </div>
     </section>
     <section class="settings-panel hidden" id="settingsPanel" aria-label="游戏设置">
-      <div class="panel settings-card">
-        <div class="settings-row">
-          <label for="maxBladesInput">最大持剑数</label>
-          <input id="maxBladesInput" type="number" min="1" max="32" step="1" value="15">
+      <div class="settings-card">
+        <div class="settings-header">
+          <strong>游戏设置</strong>
         </div>
-        <div class="settings-row">
-          <label for="maxEnemyDropInput">最多爆出几把剑</label>
-          <input id="maxEnemyDropInput" type="number" min="1" max="5" step="1" value="2">
-        </div>
-        <label class="settings-check" for="showHitboxInput">
-          <input id="showHitboxInput" type="checkbox">
-          <span>显示 hit box</span>
-        </label>
-        <label class="settings-check" for="showHelpInput">
-          <input id="showHelpInput" type="checkbox">
-          <span>显示帮助</span>
-        </label>
-        <div class="settings-probabilities">
-          <span class="settings-label">掉剑数量概率（0-1，总和不超过 1）</span>
-          <div id="dropChanceList" class="settings-probability-list"></div>
-          <span id="dropChanceSummary" class="settings-summary"></span>
+        <div class="settings-content">
+          <div class="settings-row">
+            <label for="maxBladesInput">最大持剑数</label>
+            <input id="maxBladesInput" type="number" min="1" max="32" step="1" value="15">
+          </div>
+          <div class="settings-row">
+            <label for="maxEnemyDropInput">最多爆出几把剑</label>
+            <input id="maxEnemyDropInput" type="number" min="1" max="5" step="1" value="2">
+          </div>
+          <label class="settings-check" for="showHitboxInput">
+            <input id="showHitboxInput" type="checkbox">
+            <span>显示 hit box</span>
+          </label>
+          <label class="settings-check" for="showHelpInput">
+            <input id="showHelpInput" type="checkbox">
+            <span>显示帮助</span>
+          </label>
+          <div class="settings-tier-sections">
+            <div class="settings-probabilities">
+              <span class="settings-label">三级剑转速</span>
+              <div id="tierSpeedList" class="settings-probability-list"></div>
+            </div>
+            <div class="settings-probabilities">
+              <span class="settings-label">三级剑转速偏移</span>
+              <div id="tierVarianceList" class="settings-probability-list"></div>
+            </div>
+            <div class="settings-probabilities">
+              <span class="settings-label">三级剑爆率权重（自动归一化）</span>
+              <div id="tierRateList" class="settings-probability-list"></div>
+            </div>
+          </div>
+          <div class="settings-probabilities">
+            <span class="settings-label">掉剑数量概率（0-1，总和不超过 1）</span>
+            <div id="dropChanceList" class="settings-probability-list"></div>
+            <span id="dropChanceSummary" class="settings-summary"></span>
+          </div>
         </div>
         <div class="settings-actions">
           <button id="settingsCancel" class="settings-button settings-button-secondary" type="button">取消</button>
-          <button id="settingsConfirm" class="settings-button" type="button">确定</button>
+          <button id="settingsConfirm" class="settings-button" type="button">保存</button>
         </div>
       </div>
     </section>
     <section class="hud hud-bottom hidden" id="helpPanel">
       <div class="panel controls">
         <span>移动：WASD / 方向键 / 左侧触控摇杆</span>
-        <span>规则：拾刀后随机获得 1-5 把旋转刀，刀对刀可互相抵消，刀碰树木会碎裂</span>
-        <span>设置：可临时修改持剑上限、敌人掉剑分布和是否显示 hit box</span>
+        <span>规则：地图和敌人会掉落不同等级的剑，拾刀后随机获得 1-5 把同等级旋转剑</span>
+        <span>设置：可临时修改持剑上限、三级剑转速/爆率、敌人掉剑分布和是否显示 hit box</span>
       </div>
     </section>
     <section class="overlay" id="overlay">
@@ -62,6 +81,6 @@
       </div>
     </section>
   </main>
-  <script src="game.js?v=20260521-sheet-fix"></script>
+  <script src="game.js?v=20260522-sword-tiers"></script>
 </body>
 </html>
