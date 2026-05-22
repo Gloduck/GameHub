@@ -1351,12 +1351,12 @@
       }
 
       for (const playerBlade of [...player.blades]) {
-        const pPos = bladePosition(player, playerBlade);
+        const playerHitbox = bladeRect(player, playerBlade);
 
         for (const enemyBlade of [...enemy.blades]) {
-          const ePos = bladePosition(enemy, enemyBlade);
-          if (Math.hypot(pPos.x - ePos.x, pPos.y - ePos.y) < (playerBlade.size + enemyBlade.size) * 0.82) {
-            spawnBladeClash((pPos.x + ePos.x) * 0.5, (pPos.y + ePos.y) * 0.5, player.team);
+          const enemyHitbox = bladeRect(enemy, enemyBlade);
+          if (shapesIntersect(playerHitbox, enemyHitbox)) {
+            spawnBladeClash((playerHitbox.x + enemyHitbox.x) * 0.5, (playerHitbox.y + enemyHitbox.y) * 0.5, player.team);
             removeBlade(player, playerBlade);
             removeBlade(enemy, enemyBlade);
             break;
