@@ -82,7 +82,7 @@ source script/load_env.sh && script/request_thirdparty_ai_platform.sh image "生
 本地透明化：
 
 ```bash
-script/run_temp_script_with_deps.sh --dir ./.workspace/generate-game-assets/dependences python --script skills/generate-game-assets/chroma_key_transparent.py --deps "pillow" -- ./character-keyed.png ./character-transparent.png --method greenscreen --cleanup-bias 10 --min-alpha 8
+script/run_temp_script_with_deps.sh --dir ./.workspace/generate-game-assets/dependences python --script skills/generate-game-assets/chroma_key_transparent.py --deps "pillow" -- ./character-keyed.png ./character-transparent.png --method greenscreen --cleanup-bias 10 --tolerance 48 --edge-softness 12
 ```
 
 透明化复审：
@@ -148,7 +148,7 @@ source script/load_env.sh && script/request_thirdparty_ai_platform.sh image "生
 精灵表透明化：
 
 ```bash
-script/run_temp_script_with_deps.sh --dir ./.workspace/generate-game-assets/dependences python --script skills/generate-game-assets/chroma_key_transparent.py --deps "pillow" -- ./spritesheet-keyed.png ./spritesheet-transparent.png --method greenscreen --cleanup-bias 10 --min-alpha 8
+script/run_temp_script_with_deps.sh --dir ./.workspace/generate-game-assets/dependences python --script skills/generate-game-assets/chroma_key_transparent.py --deps "pillow" -- ./spritesheet-keyed.png ./spritesheet-transparent.png --method greenscreen --cleanup-bias 10 --tolerance 48 --edge-softness 12
 ```
 
 精灵表质量复审：
