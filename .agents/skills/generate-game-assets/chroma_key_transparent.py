@@ -22,6 +22,31 @@ def clamp8(value: float) -> int:
     return max(0, min(255, int(round(value))))
 
 
+def despill_key_color(image: Image.Image, key_color: tuple[int, int, int], cleanup_bias: int) -> None:
+    dominant_value = max(key_color)
+    dominant_indices = [index for index, value in enumerate(key_color) if value == dominant_value]
+    if len(dominant_indices) != 1:
+        return
+
+    dominant_index = dominant_indices[0]
+    pixels = image.load()
+    width, height = image.size
+
+    for y in range(height):
+        for x in range(width):
+            rgba = list(pixels[x, y])
+            alpha = rgba[3]
+            if alpha == 0:
+                continue
+
+            other_values = [rgba[index] for index in range(3) if index != dominant_index]
+            channel_value = rgba[dominant_index]
+            allowed_max = max(other_values) + cleanup_bias
+            if channel_value > allowed_max:
+                rgba[dominant_index] = allowed_max
+                pixels[x, y] = tuple(rgba)
+
+
 def normalize_edge_colors(image: Image.Image, radius: int = 1) -> None:
     src = image.load()
     width, height = image.size
@@ -69,21 +94,20 @@ def normalize_edge_colors(image: Image.Image, radius: int = 1) -> None:
 def auto_pick_key_color(image: Image.Image) -> tuple[int, int, int]:
     rgba = image.convert("RGBA")
     width, height = rgba.size
-    sample_points = [
-        (0, 0),
-        (width - 1, 0),
-        (0, height - 1),
-        (width - 1, height - 1),
-        (width // 2, 0),
-        (width // 2, height - 1),
-        (0, height // 2),
-        (width - 1, height // 2),
-    ]
-    counts: dict[tuple[int, int, int], int] = {}
-    for x, y in sample_points:
-        rgb = rgba.getpixel((x, y))[:3]
-        counts[rgb] = counts.get(rgb, 0) + 1
-    return max(counts.items(), key=lambda item: item[1])[0]
+    stride = max(1, min(width, height) // 64)
+    samples: list[tuple[int, int, int]] = []
+
+    for x in range(0, width, stride):
+        samples.append(rgba.getpixel((x, 0))[:3])
+        samples.append(rgba.getpixel((x, height - 1))[:3])
+    for y in range(0, height, stride):
+        samples.append(rgba.getpixel((0, y))[:3])
+        samples.append(rgba.getpixel((width - 1, y))[:3])
+
+    avg_r = round(sum(rgb[0] for rgb in samples) / len(samples))
+    avg_g = round(sum(rgb[1] for rgb in samples) / len(samples))
+    avg_b = round(sum(rgb[2] for rgb in samples) / len(samples))
+    return (avg_r, avg_g, avg_b)
 
 
 def remove_key_color(
@@ -92,6 +116,8 @@ def remove_key_color(
     key_color: tuple[int, int, int] | None,
     tolerance: int,
     edge_softness: int,
+    cleanup_bias: int,
+    normalize_edges: bool,
 ) -> None:
     image = Image.open(input_path).convert("RGBA")
     if key_color is None:
@@ -110,39 +136,7 @@ def remove_key_color(
                 alpha = int(255 * (diff - tolerance) / edge_softness)
                 pixels[x, y] = (r, g, b, min(a, alpha))
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
-    image.save(output_path)
-
-
-def recover_foreground_from_green_screen(
-    input_path: Path,
-    output_path: Path,
-    *,
-    cleanup_bias: int = 8,
-    min_alpha: int = 6,
-    normalize_edges: bool = True,
-) -> None:
-    image = Image.open(input_path).convert("RGBA")
-    pixels = image.load()
-    width, height = image.size
-
-    for y in range(height):
-        for x in range(width):
-            r, g, b, _ = pixels[x, y]
-            alpha = max(r, b, 255 - g)
-            if alpha <= min_alpha:
-                pixels[x, y] = (0, 0, 0, 0)
-                continue
-
-            a = alpha / 255.0
-            out_r = clamp8(r / a)
-            out_b = clamp8(b / a)
-            out_g = clamp8((g - (255 * (1 - a))) / a)
-
-            if out_g > max(out_r, out_b) + cleanup_bias:
-                out_g = max(out_r, out_b)
-
-            pixels[x, y] = (out_r, out_g, out_b, alpha)
+    despill_key_color(image, key_color, cleanup_bias)
 
     if normalize_edges:
         normalize_edge_colors(image)
@@ -151,31 +145,36 @@ def recover_foreground_from_green_screen(
     image.save(output_path)
 
 
+def resolve_key_color(method: str, explicit_key_color: tuple[int, int, int] | None) -> tuple[int, int, int] | None:
+    if explicit_key_color is not None:
+        return explicit_key_color
+    if method == "greenscreen":
+        return (0, 255, 0)
+    return None
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Remove a chroma-key background and save a transparent PNG.")
     parser.add_argument("input", type=Path, help="Input image path")
     parser.add_argument("output", type=Path, help="Output PNG path")
-    parser.add_argument("--method", choices=["simple", "greenscreen"], default="simple", help="Removal method. Default: simple")
+    parser.add_argument("--method", choices=["direct", "simple", "greenscreen"], default="direct", help="Removal method. All modes directly clear the key color. Default: direct")
     parser.add_argument("--key-color", help="RGB hex color like 00ff00 or #00ff00. Defaults to auto-detect from corners.")
-    parser.add_argument("--tolerance", type=int, default=18, help="Exact color removal tolerance. Default: 18")
-    parser.add_argument("--edge-softness", type=int, default=18, help="Fade range after tolerance. Default: 18")
-    parser.add_argument("--cleanup-bias", type=int, default=8, help="How aggressively to neutralize green spill in greenscreen mode. Default: 8")
-    parser.add_argument("--min-alpha", type=int, default=6, help="Discard very faint leftover pixels in greenscreen mode. Default: 6")
-    parser.add_argument("--no-normalize-edges", action="store_true", help="Disable semi-transparent edge color cleanup in greenscreen mode")
+    parser.add_argument("--tolerance", type=int, default=48, help="Exact color removal tolerance. Default: 48")
+    parser.add_argument("--edge-softness", type=int, default=12, help="Fade range after tolerance. Default: 12")
+    parser.add_argument("--cleanup-bias", type=int, default=10, help="Clamp leftover key-color spill near visible edges. Default: 10")
+    parser.add_argument("--no-normalize-edges", action="store_true", help="Disable semi-transparent edge color cleanup after key removal")
     args = parser.parse_args()
 
-    if args.method == "greenscreen":
-        recover_foreground_from_green_screen(
-            args.input,
-            args.output,
-            cleanup_bias=args.cleanup_bias,
-            min_alpha=args.min_alpha,
-            normalize_edges=not args.no_normalize_edges,
-        )
-        return
-
-    key_color = parse_rgb(args.key_color) if args.key_color else None
-    remove_key_color(args.input, args.output, key_color, args.tolerance, args.edge_softness)
+    key_color = resolve_key_color(args.method, parse_rgb(args.key_color) if args.key_color else None)
+    remove_key_color(
+        args.input,
+        args.output,
+        key_color,
+        args.tolerance,
+        args.edge_softness,
+        args.cleanup_bias,
+        normalize_edges=not args.no_normalize_edges,
+    )
 
 
 if __name__ == "__main__":
